@@ -3,6 +3,7 @@ package com.mc9y.nyeconomy.command;
 import com.mc9y.nyeconomy.Commodity;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.api.event.PlayerBuyCommodityEvent;
+import com.mc9y.nyeconomy.data.AccountCache;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -94,13 +95,16 @@ public class NyeCommand implements CommandExecutor {
      * 查看个人信息
      */
     private void showInfo(CommandSender sender) {
-        if (INSTANCE.vaults.size() == 0) {
-            sender.sendMessage(INSTANCE.prefix + "§c无可查询数据.");
-            return;
-        }
-        sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
-        for (String v : INSTANCE.vaults) {
-            sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, sender.getName()));
+        if (sender instanceof Player) {
+            if (INSTANCE.vaults.size() == 0 || !AccountCache.CACHE_DATA.containsKey(sender.getName())) {
+                sender.sendMessage(INSTANCE.prefix + "§c无可查询数据.");
+                return;
+            }
+            sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
+            AccountCache cache = AccountCache.CACHE_DATA.get(sender.getName());
+            for (String v : INSTANCE.vaults) {
+                sender.sendMessage(" §a> §f" + v + ": §7" + cache.balance(v));
+            }
         }
     }
 

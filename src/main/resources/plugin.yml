@@ -1,8 +1,9 @@
 name: NyEconomy
-main: com.mc9y.com.mc9y.nyeconomy.Main
+main: com.mc9y.nyeconomy.Main
+depend:
+  - PokemonAPI
 softdepend:
   - PlaceholderAPI
-  - PokemonAPI
 version: ${project.version}
 commands:
   nyeconomy:

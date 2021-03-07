@@ -1,27 +1,51 @@
 package com.mc9y.nyeconomy.handler;
 
+import com.mc9y.nyeconomy.data.CurrencyData;
+
 /**
  * @author Blank038
  * @since 2021-03-07
  */
 public class YamlStorgeHandler extends AbstractStorgeHandler {
-    @Override
-    public void balance(String name, String type) {
 
+    @Override
+    public int balance(String name, String type, int status) {
+        if (CurrencyData.CURRENCY_DATA.containsKey(type)) {
+            return CurrencyData.CURRENCY_DATA.get(type).getUserBalance(name);
+        } else {
+            return 0;
+        }
     }
 
     @Override
-    public void deposit(String name, String type, int amount) {
-
+    public boolean deposit(String name, String type, int amount) {
+        if (amount < 0 || !CurrencyData.CURRENCY_DATA.containsKey(type)) {
+            return false;
+        }
+        CurrencyData.CURRENCY_DATA.get(type).deposit(name, amount);
+        return true;
     }
 
     @Override
-    public void withdraw(String name, String type, int amount) {
-
+    public boolean withdraw(String name, String type, int amount) {
+        if (amount < 0 || !CurrencyData.CURRENCY_DATA.containsKey(type) || balance(name, type, 0) < amount) {
+            return false;
+        }
+        CurrencyData.CURRENCY_DATA.get(type).withdraw(name, amount);
+        return true;
     }
 
     @Override
-    public void set(String name, String type, int amount) {
+    public boolean set(String name, String type, int amount) {
+        if (!CurrencyData.CURRENCY_DATA.containsKey(type)) {
+            return false;
+        }
+        CurrencyData.CURRENCY_DATA.get(type).set(name, amount);
+        return true;
+    }
+
+    @Override
+    public void save() {
 
     }
 }

@@ -1,6 +1,7 @@
 package com.mc9y.nyeconomy.hook;
 
 import com.mc9y.nyeconomy.Main;
+import com.mc9y.nyeconomy.data.AccountCache;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.entity.Player;
 
@@ -16,7 +17,12 @@ public class PlaceholderHook extends PlaceholderExpansion {
 
     @Override
     public String onPlaceholderRequest(Player player, String s) {
-        if (Main.getInstance().vaults.contains(s)) {
+        if ("mysql".equalsIgnoreCase(INSTANCE.getConfig().getString("data-option.type"))) {
+            if (AccountCache.CACHE_DATA.containsKey(player.getName())) {
+                return String.valueOf(AccountCache.CACHE_DATA.get(player.getName()).balance(s));
+            }
+            return "0";
+        } else if (Main.getInstance().vaults.contains(s)) {
             return String.valueOf(Main.getNyEconomyAPI().getBalance(s, player.getName()));
         }
         return "";

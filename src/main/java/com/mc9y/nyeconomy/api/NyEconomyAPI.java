@@ -1,7 +1,7 @@
 package com.mc9y.nyeconomy.api;
 
 import com.mc9y.nyeconomy.Main;
-import com.mc9y.nyeconomy.data.CurrencyData;
+import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 
 /**
  * @author Blank038
@@ -10,35 +10,23 @@ import com.mc9y.nyeconomy.data.CurrencyData;
 public class NyEconomyAPI {
 
     public int getBalance(String type, String name) {
-        if (CurrencyData.CURRENCY_DATA.containsKey(type)) {
-            return CurrencyData.CURRENCY_DATA.get(type).getUserBalance(name);
-        } else {
-            return 0;
-        }
+        return AbstractStorgeHandler.getHandler().balance(name, type, 2);
     }
 
     public void deposit(String type, String name, int amount) {
-        if (CurrencyData.CURRENCY_DATA.containsKey(type)) {
-            CurrencyData.CURRENCY_DATA.get(type).deposit(name, amount);
-        }
+        AbstractStorgeHandler.getHandler().deposit(name, type, amount);
     }
 
     public void reset(String type, String name) {
-        if (CurrencyData.CURRENCY_DATA.containsKey(type)) {
-            CurrencyData.CURRENCY_DATA.get(type).reset(name);
-        }
+        this.set(type, name, 0);
     }
 
     public void withdraw(String type, String name, int amount) {
-        if (CurrencyData.CURRENCY_DATA.containsKey(type)) {
-            CurrencyData.CURRENCY_DATA.get(type).withdraw(name, amount);
-        }
+        AbstractStorgeHandler.getHandler().withdraw(name, type, amount);
     }
 
     public void set(String type, String name, int amount) {
-        if (CurrencyData.CURRENCY_DATA.containsKey(type)) {
-            CurrencyData.CURRENCY_DATA.get(type).set(name, amount);
-        }
+        AbstractStorgeHandler.getHandler().set(name, type, amount);
     }
 
     public static NyEconomyAPI getInstance() {

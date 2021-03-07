@@ -3,11 +3,14 @@ package com.mc9y.nyeconomy;
 import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.command.NyeCommand;
 import com.mc9y.nyeconomy.data.CurrencyData;
+import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
+import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
+import com.mc9y.nyeconomy.handler.YamlStorgeHandler;
 import com.mc9y.nyeconomy.hook.PlaceholderHook;
+import com.mc9y.nyeconomy.listener.PlayerListener;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.event.Listener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -17,8 +20,7 @@ import java.util.List;
 /**
  * @author Blank038
  */
-public class Main extends JavaPlugin
-        implements Listener {
+public class Main extends JavaPlugin {
     private static NyEconomyAPI economyAPI;
     private static Main main;
 
@@ -39,8 +41,14 @@ public class Main extends JavaPlugin
         main = this;
         economyAPI = new NyEconomyAPI();
         this.loadConfig();
-        //
-
+        // 检测数据类型
+        boolean useMySQL = "mysql".equalsIgnoreCase(this.getConfig().getString("data-option.type"));
+        if (!hasHikariCP()) {
+            Bukkit.getConsoleSender().sendMessage("§c ✘ §f未找到 HikariCP §f已取消加载.");
+            this.setEnabled(false);
+            return;
+        }
+        AbstractStorgeHandler.setHandler(useMySQL ? MySqlStorgeHandler.class : YamlStorgeHandler.class);
         // 开启存储线程
         int saveDelay = getConfig().getInt("auto-save");
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
@@ -48,7 +56,7 @@ public class Main extends JavaPlugin
                 d.save();
             }
         }, 20L * (saveDelay > 0 ? saveDelay : 300), 20L * (saveDelay > 0 ? saveDelay : 300));
-        Bukkit.getPluginManager().registerEvents(this, this);
+        Bukkit.getPluginManager().registerEvents(new PlayerListener(), this);
         super.getCommand("nye").setExecutor(new NyeCommand(this));
         // 挂钩 PlaceholderAPI
         if (Bukkit.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -114,5 +122,14 @@ public class Main extends JavaPlugin
         }
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f ================================");
+    }
+
+    private boolean hasHikariCP() {
+        try {
+            Class.forName("com.zaxxer.hikari.HikariDataSource");
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
