@@ -1,0 +1,42 @@
+#开启哪些经济类型
+Enable: [ ]
+#禁止哪些货币可以转账
+PayBlackList: [ ]
+#提示信息内容
+Message:
+  Prefix: "&3多经济系统 §f// "
+  help:
+    default:
+      - "&8[&aNyEconomy&8]: &e多经济命令帮助"
+      - "&8- &b/%c me &f查询个人经济信息"
+      - "&8- &b/%c buy <商品> &f购买某个商品"
+      - "&8- &b/%c pay <玩家> <货币> <数量> &f向玩家转账"
+    admin:
+      - "&8[&aNyEconomy&8]: &e多经济命令帮助"
+      - "&8- &b/%c me &f查询个人经济信息"
+      - "&8- &b/%c buy <商品> &f购买某个商品"
+      - "&8- &b/%c pay <玩家> <货币> <数量> &f向玩家转账"
+      - "&8- &b/%c create <货币> &f创建新的货币"
+      - "&8- &b/%c look <玩家> &f查看玩家货币信息"
+      - "&8- &b/%c give <玩家> <货币> <数量> &f给予玩家货币"
+      - "&8- &b/%c take <玩家> <货币> <数量> &f扣除玩家货币"
+      - "&8- &b/%c reset <玩家> <货币> &f清空玩家指定货币"
+      - "&8- &b/%c delete <货币> &f删除某个货币"
+      - "&8- &b/%c reload &f重载插件配置文件"
+  FailCurrency: "&c没有该货币类型！"
+  Delay: "&c命令冷却中, 请等待1秒！"
+  NoHasPermission: "&c你没有权限这样子做！"
+  Reload: "&a插件配置重载完成！"
+  FailType: "&c请输入正确的货币类型！"
+  FailAmount: "&c请输入一个正确的数量！"
+  Give: "&a成功给予玩家 %player% &f%amount%%type%"
+  Pay: "&a成功向 &f%player% &a转账 &f%amount%%type%"
+  LackCurrency: "&c你没有足够的%type%来购买这个商品, 需要: &f%amount%%type%"
+  BuySuccess: "&a成功购买商品: &f%commodity%"
+  PayCancelled: "&c该货币不允许转账！"
+  Take: "&a成功扣除玩家 &f%player% &f%amount%%type%&a, 当前余额: &f%last%"
+  set: "&a成功设置玩家 &f%player% &f%type% &a数量为 &f%amount%"
+#命令使用冷却时间, 单位：秒
+CommandDelay: 1
+# 存储间隔, 单位: 秒
+auth-save: 300

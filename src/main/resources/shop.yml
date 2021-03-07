@@ -1,0 +1,6 @@
+test:
+  type: "测试货币"
+  amount: 100
+  name: "测试物品"
+  commands:
+    - "give %player% 1 1"
