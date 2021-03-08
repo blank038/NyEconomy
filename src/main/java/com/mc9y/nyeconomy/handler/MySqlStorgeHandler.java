@@ -22,6 +22,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
 
     private final HikariDataSource DATA_SOURCE;
     private final Gson GSON = new GsonBuilder().create();
+    private Connection connection;
 
     public MySqlStorgeHandler() {
         HikariConfig config = new HikariConfig();
@@ -54,27 +55,10 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             return 0;
         }
         if (status == 0 || this.isExists(name)) {
-            AtomicReference<JsonObject> atomic = new AtomicReference<>();
-            this.connect((connection, statement) -> {
-                ResultSet resultSet = null;
-                try {
-                    statement.setString(1, name);
-                    resultSet = statement.executeQuery();
-                    if (resultSet.next()) {
-                        atomic.set(GSON.fromJson(resultSet.getString("data"), JsonObject.class));
-                    }
-                } catch (SQLException throwables) {
-                    throwables.printStackTrace();
-                } finally {
-                    this.close(connection, statement, resultSet);
-                }
-            }, "SELECT data from ny_economy WHERE user=?");
-            AccountCache cache = AccountCache.CACHE_DATA.getOrDefault(name,
-                    AccountCache.CACHE_DATA.put(name, new AccountCache(atomic.get())));
-            cache.update(atomic.get());
+            AccountCache cache = this.getPlayerCache(name);
+            // 模拟提交玩家数据, 如果玩家不存在
             return cache.balance(type);
         } else {
-            AccountCache.CACHE_DATA.getOrDefault(name, AccountCache.CACHE_DATA.put(name, new AccountCache(new JsonObject())));
             return 0;
         }
     }
@@ -82,23 +66,24 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     @Override
     public synchronized boolean deposit(String name, String type, int amount) {
         boolean exists = this.isExists(name);
-        int now = AccountCache.CACHE_DATA.containsKey(name) ?
-                AccountCache.CACHE_DATA.get(name).balance(type) : this.balance(name, type, exists ? 0 : 1);
-        JsonObject object = AccountCache.CACHE_DATA.get(name).set(type, now + amount).toJsonObject();
-        this.submitData(exists, name, object);
+        AccountCache cache = this.getPlayerCache(name);
+        int now = cache.balance(type);
+        this.submitData(exists, name, cache.set(type, now + amount).toJsonObject());
+        this.updateCache(name, cache);
         return true;
     }
 
     @Override
     public synchronized boolean withdraw(String name, String type, int amount) {
         if (this.isExists(name)) {
-            int now = AccountCache.CACHE_DATA.containsKey(name) ?
-                    AccountCache.CACHE_DATA.get(name).balance(type) : this.balance(name, type, 0);
+            int now = this.balance(name, type, 0);
             if (now < amount) {
                 return false;
             }
-            JsonObject object = AccountCache.CACHE_DATA.get(name).set(type, now - amount).toJsonObject();
+            AccountCache cache = this.getPlayerCache(name);
+            JsonObject object = cache.set(type, now - amount).toJsonObject();
             this.submitData(true, name, object);
+            this.updateCache(name, cache);
             return true;
         }
         return false;
@@ -107,13 +92,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     @Override
     public synchronized boolean set(String name, String type, int amount) {
         boolean exists = this.isExists(name);
-        if (exists) {
-            this.balance(name, type, 0);
-        } else {
-            AccountCache.CACHE_DATA.put(name, new AccountCache(new JsonObject()));
-        }
-        JsonObject object = AccountCache.CACHE_DATA.get(name).set(type, amount).toJsonObject();
-        this.submitData(exists, name, object);
+        AccountCache cache = this.getPlayerCache(name);
+        this.submitData(exists, name, cache.set(type, amount).toJsonObject());
+        this.updateCache(name, cache);
         return true;
     }
 
@@ -142,11 +123,18 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
 
     }
 
+    public void updateCache(String name, AccountCache cache) {
+        if (AccountCache.CACHE_DATA.containsKey(name)) {
+            AccountCache.CACHE_DATA.get(name).update(cache.toJsonObject());
+        }
+    }
+
     public void connect(ExecuteModel executeModel, String sql) {
-        Connection connection = null;
         PreparedStatement statement = null;
         try {
-            connection = this.DATA_SOURCE.getConnection();
+            if (connection == null || connection.isClosed()) {
+                connection = this.DATA_SOURCE.getConnection();
+            }
             statement = connection.prepareStatement(sql);
             executeModel.run(connection, statement);
         } catch (SQLException e) {
@@ -165,9 +153,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             if (statement != null) {
                 statement.close();
             }
-            if (connection != null) {
-                connection.close();
-            }
+//            if (connection != null) {
+//                connection.close();
+//            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -190,5 +178,28 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 this.close(connection, statement, null);
             }
         }, exists ? "UPDATE ny_economy SET data=? WHERE user=?" : "INSERT INTO ny_economy (user,data) VALUES (?,?)");
+    }
+
+    @Override
+    public AccountCache getPlayerCache(String name) {
+        if (this.isExists(name)) {
+            AtomicReference<JsonObject> atomicReference = new AtomicReference<>();
+            this.connect((connection, statement) -> {
+                ResultSet resultSet = null;
+                try {
+                    statement.setString(1, name);
+                    resultSet = statement.executeQuery();
+                    if (resultSet.next()) {
+                        atomicReference.set(GSON.fromJson(resultSet.getString("data"), JsonObject.class));
+                    }
+                } catch (SQLException throwables) {
+                    throwables.printStackTrace();
+                } finally {
+                    this.close(connection, statement, resultSet);
+                }
+            }, "SELECT data from ny_economy WHERE user=?");
+            return new AccountCache(atomicReference.get());
+        }
+        return new AccountCache(new JsonObject());
     }
 }

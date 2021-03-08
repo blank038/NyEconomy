@@ -1,9 +1,12 @@
 package com.mc9y.nyeconomy.handler;
 
+import com.mc9y.nyeconomy.data.AccountCache;
+
 /**
  * @author Blank038
  * @since 2021-03-07
  */
+@SuppressWarnings(value = {"UnusedReturnValue"})
 public abstract class AbstractStorgeHandler {
     private static AbstractStorgeHandler INSTANCE;
 
@@ -51,6 +54,10 @@ public abstract class AbstractStorgeHandler {
      * 主动存储数据
      */
     public abstract void save();
+
+    public AccountCache getPlayerCache(String name) {
+        return null;
+    }
 
     public boolean isExists(String name) {
         return true;
