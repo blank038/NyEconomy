@@ -57,7 +57,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         if (status == 0 || this.isExists(name)) {
             AccountCache cache = this.getPlayerCache(name);
             // 模拟提交玩家数据, 如果玩家不存在
-            return cache.balance(type);
+            return cache.balance(Main.getNyEconomyAPI().checkVaultType(type));
         } else {
             return 0;
         }
@@ -67,8 +67,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public synchronized boolean deposit(String name, String type, int amount) {
         boolean exists = this.isExists(name);
         AccountCache cache = this.getPlayerCache(name);
-        int now = cache.balance(type);
-        this.submitData(exists, name, cache.set(type, now + amount).toJsonObject());
+        String lastType = Main.getNyEconomyAPI().checkVaultType(type);
+        int now = cache.balance(lastType);
+        this.submitData(exists, name, cache.set(lastType, now + amount).toJsonObject());
         this.updateCache(name, cache);
         return true;
     }
@@ -76,12 +77,13 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     @Override
     public synchronized boolean withdraw(String name, String type, int amount) {
         if (this.isExists(name)) {
-            int now = this.balance(name, type, 0);
+            String lastType = Main.getNyEconomyAPI().checkVaultType(type);
+            int now = this.balance(name, lastType, 0);
             if (now < amount) {
                 return false;
             }
             AccountCache cache = this.getPlayerCache(name);
-            JsonObject object = cache.set(type, now - amount).toJsonObject();
+            JsonObject object = cache.set(lastType, now - amount).toJsonObject();
             this.submitData(true, name, object);
             this.updateCache(name, cache);
             return true;
@@ -93,7 +95,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public synchronized boolean set(String name, String type, int amount) {
         boolean exists = this.isExists(name);
         AccountCache cache = this.getPlayerCache(name);
-        this.submitData(exists, name, cache.set(type, amount).toJsonObject());
+        this.submitData(exists, name, cache.set(Main.getNyEconomyAPI().checkVaultType(type), amount).toJsonObject());
         this.updateCache(name, cache);
         return true;
     }

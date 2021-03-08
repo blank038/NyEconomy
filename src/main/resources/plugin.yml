@@ -4,6 +4,7 @@ depend:
   - PokemonAPI
 softdepend:
   - PlaceholderAPI
+  - Vault
 version: ${project.version}
 commands:
   nyeconomy:

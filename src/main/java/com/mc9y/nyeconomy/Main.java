@@ -1,6 +1,7 @@
 package com.mc9y.nyeconomy;
 
 import com.mc9y.nyeconomy.api.NyEconomyAPI;
+import com.mc9y.nyeconomy.bridge.VaultBridge;
 import com.mc9y.nyeconomy.command.NyeCommand;
 import com.mc9y.nyeconomy.data.CurrencyData;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
@@ -24,7 +25,6 @@ public class Main extends JavaPlugin {
     private static NyEconomyAPI economyAPI;
     private static Main main;
 
-    private boolean papi = false;
     public List<String> vaults = new ArrayList<>();
     public String prefix;
 
@@ -48,6 +48,7 @@ public class Main extends JavaPlugin {
             this.setEnabled(false);
             return;
         }
+        // 设置数据管理器
         AbstractStorgeHandler.setHandler(useMySQL ? MySqlStorgeHandler.class : YamlStorgeHandler.class);
         // 开启存储线程
         int saveDelay = getConfig().getInt("auto-save");
@@ -61,15 +62,15 @@ public class Main extends JavaPlugin {
         // 挂钩 PlaceholderAPI
         if (Bukkit.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new PlaceholderHook(this).register();
-            papi = true;
         }
     }
 
     @Override
     public void onDisable() {
-        for (CurrencyData d : CurrencyData.CURRENCY_DATA.values()) {
-            d.save();
+        if (AbstractStorgeHandler.getHandler() != null) {
+            AbstractStorgeHandler.getHandler().save();
         }
+        VaultBridge.unregister();
     }
 
     public void loadConfig() {
@@ -79,6 +80,23 @@ public class Main extends JavaPlugin {
         saveDefaultConfig();
         reloadConfig();
         prefix = getConfig().getString("Message.Prefix").replace("&", "§");
+        // 输出 PlaceholderAPI 挂钩信息
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 laceholderAPI §a✔");
+        } else {
+            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §7未检测到 PlaceholderAPI §c✘");
+        }
+        // 输出 Vault 是否挂钩
+        VaultBridge.register();
+        VaultBridge.checkCurrencyFile();
+        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 Vault " + (VaultBridge.getVaultBridge() != null ? "§a✔" : "§c✘"));
+        this.loadCurrencies();
+        this.loadCommodity();
+        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
+        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f ================================");
+    }
+
+    private void loadCurrencies() {
         // 载入货币列表
         File currencies = new File(getDataFolder(), "Currencies");
         currencies.mkdir();
@@ -87,9 +105,9 @@ public class Main extends JavaPlugin {
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e开始加载经济货币项");
         for (String i : getConfig().getStringList("Enable")) {
             File cf = new File(getDataFolder() + "/Currencies/", i + ".yml");
-            if (cf.exists()) {
+            if (cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"))) {
                 vaults.add(i);
-                CurrencyData.CURRENCY_DATA.put(i, new CurrencyData(i));
+                CurrencyData.CURRENCY_DATA.putIfAbsent(i, new CurrencyData(i));
                 Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a -> §2成功加载货币项: §f" + i);
             } else {
                 Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a -> §c货币项 §f" + i + " §c不存在");
@@ -97,6 +115,9 @@ public class Main extends JavaPlugin {
         }
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e经济加载完成, 共加载 §f%amount% §e项"
                 .replace("%amount%", vaults.size() + ""));
+    }
+
+    private void loadCommodity() {
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e开始加载商店物品项");
         Commodity.COMMODITY_MAP.clear();
         File shop = new File(getDataFolder(), "shop.yml");
@@ -115,13 +136,6 @@ public class Main extends JavaPlugin {
             }
         }
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e已加载商品 (§2成功§f[" + Commodity.COMMODITY_MAP.size() + "] §c失败§f[" + fails + "]§e)");
-        if (papi) {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩PlaceholderAPI §a✔");
-        } else {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §7未检测到PlaceholderAPI §c✘");
-        }
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f ================================");
     }
 
     private boolean hasHikariCP() {

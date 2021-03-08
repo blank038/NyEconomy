@@ -13,6 +13,14 @@ public class NyEconomyAPI {
         return AbstractStorgeHandler.getHandler().balance(name, type, 2);
     }
 
+    public String checkVaultType(String type) {
+        if (Main.getInstance().getConfig().getBoolean("economy-bridge.enable")
+                && Main.getInstance().getConfig().getString("economy-bridge.currency").equals(type)) {
+            return "60CFC2D63B8F0E9D";
+        }
+        return type;
+    }
+
     public void deposit(String type, String name, int amount) {
         AbstractStorgeHandler.getHandler().deposit(name, type, amount);
     }
@@ -28,6 +36,7 @@ public class NyEconomyAPI {
     public void set(String type, String name, int amount) {
         AbstractStorgeHandler.getHandler().set(name, type, amount);
     }
+
 
     public static NyEconomyAPI getInstance() {
         return Main.getNyEconomyAPI();

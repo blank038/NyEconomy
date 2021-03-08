@@ -2,6 +2,8 @@ package com.mc9y.nyeconomy.handler;
 
 import com.mc9y.nyeconomy.data.CurrencyData;
 
+import java.util.Map;
+
 /**
  * @author Blank038
  * @since 2021-03-07
@@ -46,6 +48,8 @@ public class YamlStorgeHandler extends AbstractStorgeHandler {
 
     @Override
     public void save() {
-
+        for (Map.Entry<String, CurrencyData> entry : CurrencyData.CURRENCY_DATA.entrySet()) {
+            entry.getValue().save();
+        }
     }
 }

@@ -12,6 +12,12 @@ data-option:
 Enable: [ ]
 #禁止哪些货币可以转账
 PayBlackList: [ ]
+# 是否开启 Vault 经济桥
+economy-bridge:
+  enable: false
+  singular: "Money"
+  plural: "金币"
+  currency: "金币"
 #提示信息内容
 Message:
   Prefix: "&3多经济系统 §f// "

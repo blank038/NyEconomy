@@ -2,6 +2,7 @@ package com.mc9y.nyeconomy.data;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.mc9y.nyeconomy.Main;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,14 +21,15 @@ public class AccountCache {
     }
 
     public int balance(String type) {
-        return this.CURRENCY_MAP.getOrDefault(type, 0);
+        return this.CURRENCY_MAP.getOrDefault(Main.getNyEconomyAPI().checkVaultType(type), 0);
     }
 
     public AccountCache set(String type, int amount) {
-        if (this.CURRENCY_MAP.containsKey(type)) {
-            this.CURRENCY_MAP.replace(type, amount);
+        String lastType = Main.getNyEconomyAPI().checkVaultType(type);
+        if (this.CURRENCY_MAP.containsKey(lastType)) {
+            this.CURRENCY_MAP.replace(lastType, amount);
         } else {
-            this.CURRENCY_MAP.put(type, amount);
+            this.CURRENCY_MAP.put(lastType, amount);
         }
         return this;
     }
