@@ -38,9 +38,7 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        main = this;
         economyAPI = new NyEconomyAPI();
-        this.loadConfig();
         // 检测数据类型
         boolean useMySQL = "mysql".equalsIgnoreCase(this.getConfig().getString("data-option.type"));
         if (!hasHikariCP()) {
@@ -73,6 +71,12 @@ public class Main extends JavaPlugin {
         VaultBridge.unregister();
     }
 
+    @Override
+    public void onLoad() {
+        main = this;
+        this.loadConfig();
+    }
+
     public void loadConfig() {
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f ================================");
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b正在加载九域多经济系统...");
@@ -82,14 +86,18 @@ public class Main extends JavaPlugin {
         prefix = getConfig().getString("Message.Prefix").replace("&", "§");
         // 输出 PlaceholderAPI 挂钩信息
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 laceholderAPI §a✔");
+            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 PlaceholderAPI §a✔");
         } else {
             Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §7未检测到 PlaceholderAPI §c✘");
         }
         // 输出 Vault 是否挂钩
         VaultBridge.register();
         VaultBridge.checkCurrencyFile();
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 Vault " + (VaultBridge.getVaultBridge() != null ? "§a✔" : "§c✘"));
+        if (VaultBridge.getVaultBridge() != null) {
+            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 Vault 经济桥 §a✔");
+        } else {
+            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §7未检测到 Vault 经济桥 §c✘");
+        }
         this.loadCurrencies();
         this.loadCommodity();
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");

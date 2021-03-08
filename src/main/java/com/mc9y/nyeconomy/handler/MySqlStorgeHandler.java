@@ -54,6 +54,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         if (status == 1) {
             return 0;
         }
+        System.out.println();
         if (status == 0 || this.isExists(name)) {
             AccountCache cache = this.getPlayerCache(name);
             // 模拟提交玩家数据, 如果玩家不存在
