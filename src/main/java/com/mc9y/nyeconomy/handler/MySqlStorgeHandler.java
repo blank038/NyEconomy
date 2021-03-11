@@ -5,10 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
-import com.mc9y.nyeconomy.handler.execute.ExecuteModel;
-import com.mc9y.nyeconomy.interfaces.IDataSourceHandler;
-import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandler;
-import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandlerImpl;
+import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandlerImpl;
 
 import java.sql.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,17 +20,16 @@ import java.util.concurrent.atomic.AtomicReference;
 public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public static boolean SQL_STATUS = false;
 
-    private final IDataSourceHandler DATA_SOURCE;
+    private final AbstractDataSourceHandler DATA_SOURCE;
     private final Gson GSON = new GsonBuilder().create();
-    private Connection connection;
 
     public MySqlStorgeHandler() {
-        this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandler() : new CommonDataSourceHandler();
+        this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandlerImpl() : new CommonDataSourceHandlerImpl();
         this.createTable();
     }
 
     public void createTable() {
-        connect((connection, statement) -> {
+        this.DATA_SOURCE.connect((connection, statement) -> {
             try {
                 statement.executeUpdate();
             } catch (SQLException e) {
@@ -95,7 +93,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     @Override
     public boolean isExists(String name) {
         AtomicBoolean exists = new AtomicBoolean(false);
-        this.connect((connection, statement) -> {
+        this.DATA_SOURCE.connect((connection, statement) -> {
             ResultSet resultSet = null;
             try {
                 statement.setString(1, name);
@@ -106,7 +104,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             } catch (SQLException throwables) {
                 throwables.printStackTrace();
             } finally {
-                this.close(statement, resultSet);
+                this.DATA_SOURCE.close(statement, resultSet);
             }
         }, "SELECT data from ny_economy WHERE user=?");
         return exists.get();
@@ -123,37 +121,8 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         }
     }
 
-    public void connect(ExecuteModel executeModel, String sql) {
-        PreparedStatement statement = null;
-        try {
-            if (connection == null || connection.isClosed()) {
-                connection = this.DATA_SOURCE.getConnection();
-            }
-            statement = connection.prepareStatement(sql);
-            executeModel.run(connection, statement);
-        } catch (SQLException e) {
-            SQL_STATUS = false;
-            e.printStackTrace();
-        } finally {
-            close(statement, null);
-        }
-    }
-
-    public void close(Statement statement, ResultSet resultSet) {
-        try {
-            if (resultSet != null) {
-                resultSet.close();
-            }
-            if (statement != null) {
-                statement.close();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     private void submitData(boolean exists, String name, JsonObject object) {
-        this.connect((connection, statement) -> {
+        this.DATA_SOURCE.connect((connection, statement) -> {
             try {
                 if (exists) {
                     statement.setString(1, object.toString());
@@ -166,7 +135,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             } catch (SQLException throwables) {
                 throwables.printStackTrace();
             } finally {
-                this.close(statement, null);
+                this.DATA_SOURCE.close(statement, null);
             }
         }, exists ? "UPDATE ny_economy SET data=? WHERE user=?" : "INSERT INTO ny_economy (user,data) VALUES (?,?)");
     }
@@ -175,7 +144,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public AccountCache getPlayerCache(String name) {
         if (this.isExists(name)) {
             AtomicReference<JsonObject> atomicReference = new AtomicReference<>();
-            this.connect((connection, statement) -> {
+            this.DATA_SOURCE.connect((connection, statement) -> {
                 ResultSet resultSet = null;
                 try {
                     statement.setString(1, name);
@@ -186,7 +155,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 } catch (SQLException throwables) {
                     throwables.printStackTrace();
                 } finally {
-                    this.close(statement, resultSet);
+                    this.DATA_SOURCE.close(statement, resultSet);
                 }
             }, "SELECT data from ny_economy WHERE user=?");
             return new AccountCache(atomicReference.get());

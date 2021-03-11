@@ -1,7 +1,7 @@
 package com.mc9y.nyeconomy.interfaces.impl;
 
 import com.mc9y.nyeconomy.Main;
-import com.mc9y.nyeconomy.interfaces.IDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandler;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -12,10 +12,10 @@ import java.sql.SQLException;
  * @author Blank038
  * @since 2021-03-11
  */
-public class HikariDataSourceHandler implements IDataSourceHandler {
+public class HikariDataSourceHandlerImpl extends AbstractDataSourceHandler {
     private final HikariDataSource DATA_SOURCE;
 
-    public HikariDataSourceHandler() {
+    public HikariDataSourceHandlerImpl() {
         HikariConfig config = new HikariConfig();
         config.setPoolName(Main.getInstance().getDescription().getName() + "Pool");
         config.setJdbcUrl(Main.getInstance().getConfig().getString("data-option.url"));
@@ -38,4 +38,5 @@ public class HikariDataSourceHandler implements IDataSourceHandler {
         }
         return null;
     }
+
 }
