@@ -146,7 +146,7 @@ public class Main extends JavaPlugin {
         Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e已加载商品 (§2成功§f[" + Commodity.COMMODITY_MAP.size() + "] §c失败§f[" + fails + "]§e)");
     }
 
-    private boolean hasHikariCP() {
+    public boolean hasHikariCP() {
         try {
             Class.forName("com.zaxxer.hikari.HikariDataSource");
             return true;

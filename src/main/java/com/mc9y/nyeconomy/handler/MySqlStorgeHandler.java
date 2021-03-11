@@ -6,8 +6,9 @@ import com.google.gson.JsonObject;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.handler.execute.ExecuteModel;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
+import com.mc9y.nyeconomy.interfaces.IDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandler;
 
 import java.sql.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -20,22 +21,12 @@ import java.util.concurrent.atomic.AtomicReference;
 public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public static boolean SQL_STATUS = false;
 
-    private final HikariDataSource DATA_SOURCE;
+    private final IDataSourceHandler DATA_SOURCE;
     private final Gson GSON = new GsonBuilder().create();
     private Connection connection;
 
     public MySqlStorgeHandler() {
-        HikariConfig config = new HikariConfig();
-        config.setPoolName(Main.getInstance().getDescription().getName() + "Pool");
-        config.setJdbcUrl(Main.getInstance().getConfig().getString("data-option.url"));
-        config.setUsername(Main.getInstance().getConfig().getString("data-option.user"));
-        config.setPassword(Main.getInstance().getConfig().getString("data-option.password"));
-        config.addDataSourceProperty("cachePrepStmts", "true");
-        config.addDataSourceProperty("prepStmtCacheSize", "250");
-        config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
-        config.addDataSourceProperty("autoReconnect", "true");
-        config.addDataSourceProperty("useSSL", "false");
-        this.DATA_SOURCE = new HikariDataSource(config);
+        this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandler() : new CommonDataSourceHandler();
         this.createTable();
     }
 
@@ -115,7 +106,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             } catch (SQLException throwables) {
                 throwables.printStackTrace();
             } finally {
-                this.close(connection, statement, resultSet);
+                this.close(statement, resultSet);
             }
         }, "SELECT data from ny_economy WHERE user=?");
         return exists.get();
@@ -144,11 +135,11 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             SQL_STATUS = false;
             e.printStackTrace();
         } finally {
-            close(connection, statement, null);
+            close(statement, null);
         }
     }
 
-    public void close(Connection connection, Statement statement, ResultSet resultSet) {
+    public void close(Statement statement, ResultSet resultSet) {
         try {
             if (resultSet != null) {
                 resultSet.close();
@@ -156,9 +147,6 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             if (statement != null) {
                 statement.close();
             }
-//            if (connection != null) {
-//                connection.close();
-//            }
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -178,7 +166,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             } catch (SQLException throwables) {
                 throwables.printStackTrace();
             } finally {
-                this.close(connection, statement, null);
+                this.close(statement, null);
             }
         }, exists ? "UPDATE ny_economy SET data=? WHERE user=?" : "INSERT INTO ny_economy (user,data) VALUES (?,?)");
     }
@@ -198,7 +186,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 } catch (SQLException throwables) {
                     throwables.printStackTrace();
                 } finally {
-                    this.close(connection, statement, resultSet);
+                    this.close(statement, resultSet);
                 }
             }, "SELECT data from ny_economy WHERE user=?");
             return new AccountCache(atomicReference.get());
