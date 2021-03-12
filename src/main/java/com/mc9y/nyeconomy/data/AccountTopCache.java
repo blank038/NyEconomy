@@ -14,12 +14,23 @@ public class AccountTopCache {
     private final HashMap<String, Integer> TEMP_MAP = new HashMap<>();
 
     public AccountTopCache(JsonObject jsonObject) {
-        JsonArray array = jsonObject.getAsJsonArray("currencys");
-        for (int i = 0; i < array.size(); i++) {
-            JsonObject object = array.get(i).getAsJsonObject();
-            String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
-                    Main.getInstance().getConfig().getString("economy-bridge.currency"));
-            TEMP_MAP.put(key, object.get("count").getAsInt());
+        if (jsonObject.has("currencys")) {
+            JsonArray array = jsonObject.getAsJsonArray("currencys");
+            for (int i = 0; i < array.size(); i++) {
+                JsonObject object = array.get(i).getAsJsonObject();
+                String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
+                        Main.getInstance().getConfig().getString("economy-bridge.currency"));
+                TEMP_MAP.put(key, object.get("count").getAsInt());
+            }
+        }
+        if (jsonObject.has("top_data")) {
+            JsonArray array = jsonObject.getAsJsonArray("top_data");
+            for (int i = 0; i < array.size(); i++) {
+                JsonObject object = array.get(i).getAsJsonObject();
+                String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
+                        Main.getInstance().getConfig().getString("economy-bridge.currency"));
+                TEMP_MAP.put(key, object.get("count").getAsInt());
+            }
         }
     }
 
@@ -44,7 +55,7 @@ public class AccountTopCache {
             return this.NAME;
         }
 
-        public V getCount() {
+        public V getValue() {
             return COUNT;
         }
     }

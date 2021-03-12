@@ -26,6 +26,10 @@ public class VaultBridge extends AbstractEconomy {
         this.CURRENCY = Main.getInstance().getConfig().getString("economy-bridge.currency");
     }
 
+    public String getCurrencyName() {
+        return this.CURRENCY;
+    }
+
     @Override
     public boolean isEnabled() {
         return true;

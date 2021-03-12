@@ -1,5 +1,6 @@
 package com.mc9y.nyeconomy.interfaces;
 
+import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.handler.execute.ExecuteModel;
 
 import java.sql.*;
@@ -16,16 +17,26 @@ public abstract class AbstractDataSourceHandlerImpl implements IDataSourceHandle
     public void connect(ExecuteModel executeModel, String sql) {
         PreparedStatement statement = null;
         try {
+            if (Main.getInstance().isDebug()) {
+                Main.getInstance().getLogger().info("MySQL 连接是否为空: " + (connection == null));
+            }
             if (connection == null || connection.isClosed()) {
-                connection = this.getConnection();
+                if (Main.getInstance().isDebug()) {
+                    Main.getInstance().getLogger().info("已重新从 MySQL 取得 Connection. ");
+                }
+                this.connection = this.getConnection();
             }
             statement = connection.prepareStatement(sql);
             executeModel.run(connection, statement);
         } catch (SQLException e) {
             SQL_STATUS = false;
-            e.printStackTrace();
+            connection = this.getConnection();
+            if (Main.getInstance().isDebug()) {
+                e.printStackTrace();
+            }
+            this.connect(executeModel, sql);
         } finally {
-            close(statement, null);
+            this.close(statement, null);
         }
     }
 

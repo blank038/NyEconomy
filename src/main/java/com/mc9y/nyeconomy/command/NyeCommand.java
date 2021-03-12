@@ -6,7 +6,7 @@ import com.mc9y.nyeconomy.api.event.PlayerBuyCommodityEvent;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.AccountTopCache;
 import com.mc9y.nyeconomy.data.TopCache;
-import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
+import com.mc9y.nyeconomy.util.TopBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -19,6 +19,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -346,11 +347,15 @@ public class NyeCommand implements CommandExecutor {
             if (checkCurrency(sender, args)) {
                 return;
             }
-            AbstractStorgeHandler.getHandler().refreshTop();
-            System.out.println("ovo");
-            for (Map.Entry<Integer, AccountTopCache.Entry<String, Integer>> entry : TopCache.getInstance().getTopData(args[1]).entrySet()) {
-                sender.sendMessage(entry.getKey() + ": " + entry.getValue().getName() + " > " + entry.getValue().getCount());
+            int page = 1;
+            if (args.length > 2) {
+                try {
+                    page = Integer.parseInt(args[2]);
+                } catch (Exception ignored) {
+                }
             }
+            page = Math.max(1, page);
+            new TopBuilder(TopCache.getInstance().getTopData(args[1]), page).send(args[1], sender);
         }
     }
 

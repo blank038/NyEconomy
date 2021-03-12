@@ -147,57 +147,63 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             }
         }, "SELECT option_value from ny_economy_option where option_key='refresh_time'");
         long prevRefreshDate = atomic.get(), now = System.currentTimeMillis();
-        // 判断时间是否达标
-        if (now >= (prevRefreshDate + Main.getInstance().getConfig().getInt("prev-refresh-delay")) || !exists.get()) {
-            // 先更新刷新时间
-            this.DATA_SOURCE.connect((connection, statement) -> {
-                try {
-                    System.out.println(exists.get());
-                    statement.setString(1, String.valueOf(now));
-                    statement.executeUpdate();
-                } catch (SQLException throwables) {
-                    throwables.printStackTrace();
-                } finally {
-                    this.DATA_SOURCE.close(statement, null);
+        // 先更新刷新时间
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            try {
+                statement.setString(1, String.valueOf(now));
+                statement.executeUpdate();
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            } finally {
+                this.DATA_SOURCE.close(statement, null);
+            }
+        }, exists.get() ? "UPDATE ny_economy_option SET option_value=? WHERE option_key='refresh_time'"
+                : "INSERT INTO ny_economy_option (option_key,option_value) VALUES ('refresh_time',?)");
+        // 创建集合
+        HashMap<String, AccountTopCache> cache = new HashMap<>(this.getTableCount("ny_economy"));
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            ResultSet resultSet = null;
+            try {
+                resultSet = statement.executeQuery();
+                while (resultSet.next()) {
+                    AccountTopCache accountTopCache = new AccountTopCache(
+                            this.GSON.fromJson(resultSet.getString("data"), JsonObject.class)
+                    );
+                    cache.put(resultSet.getString("user"), accountTopCache);
                 }
-            }, exists.get() ? "UPDATE ny_economy_option SET option_value=? WHERE option_key='refresh_time'"
-                    : "INSERT INTO ny_economy_option (option_key,option_value) VALUES ('refresh_time',?)");
-            // 开始计算排行
-            AtomicInteger atomicInteger = new AtomicInteger();
-            this.DATA_SOURCE.connect((connection, statement) -> {
-                ResultSet resultSet = null;
-                try {
-                    resultSet = statement.executeQuery();
-                    while (resultSet.next()) {
-                        atomicInteger.set(resultSet.getInt(1));
-                    }
-                } catch (SQLException throwables) {
-                    throwables.printStackTrace();
-                } finally {
-                    this.DATA_SOURCE.close(statement, resultSet);
-                }
-            }, "SELECT count(*) FROM ny_economy");
-            // 创建集合
-            HashMap<String, AccountTopCache> cache = new HashMap<>(atomicInteger.get());
-            this.DATA_SOURCE.connect((connection, statement) -> {
-                ResultSet resultSet = null;
-                try {
-                    resultSet = statement.executeQuery();
-                    while (resultSet.next()) {
-                        AccountTopCache accountTopCache = new AccountTopCache(
-                                this.GSON.fromJson(resultSet.getString("data"), JsonObject.class)
-                        );
-                        cache.put(resultSet.getString("user"), accountTopCache);
-                    }
-                } catch (SQLException throwables) {
-                    throwables.printStackTrace();
-                } finally {
-                    this.DATA_SOURCE.close(statement, resultSet);
-                }
-            }, "SELECT * FROM ny_economy");
-            // 刷新排行
-            TopCache.getInstance().submitCache(cache);
-        }
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            } finally {
+                this.DATA_SOURCE.close(statement, resultSet);
+            }
+        }, "SELECT * FROM ny_economy");
+        // 刷新排行缓存
+        TopCache.getInstance().submitCache(cache);
+//        // 判断时间是否达标
+//        if (now >= (prevRefreshDate + Main.getInstance().getConfig().getInt("prev-refresh-delay")) || !exists.get()) {
+//
+//        } else {
+//            // 开始计算排行
+//            HashMap<String, AccountTopCache> cache = new HashMap<>(this.getTableCount("ny_economy_top"));
+//            this.DATA_SOURCE.connect((connection, statement) -> {
+//                ResultSet resultSet = null;
+//                try {
+//                    resultSet = statement.executeQuery();
+//                    while (resultSet.next()) {
+//                        AccountTopCache accountTopCache = new AccountTopCache(
+//                                this.GSON.fromJson(resultSet.getString("data"), JsonObject.class)
+//                        );
+//                        cache.put(resultSet.getString("user"), accountTopCache);
+//                    }
+//                } catch (SQLException throwables) {
+//                    throwables.printStackTrace();
+//                } finally {
+//                    this.DATA_SOURCE.close(statement, resultSet);
+//                }
+//            }, "SELECT * FROM ny_economy_top");
+//            // 刷新排行缓存
+//            TopCache.getInstance().submitCache(cache);
+//        }
     }
 
     public void updateCache(String name, AccountCache cache) {
@@ -246,5 +252,23 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             return new AccountCache(atomicReference.get());
         }
         return new AccountCache(new JsonObject());
+    }
+
+    public int getTableCount(String tableName) {
+        AtomicInteger atomicInteger = new AtomicInteger();
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            ResultSet resultSet = null;
+            try {
+                resultSet = statement.executeQuery();
+                while (resultSet.next()) {
+                    atomicInteger.set(resultSet.getInt(1));
+                }
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            } finally {
+                this.DATA_SOURCE.close(statement, resultSet);
+            }
+        }, "SELECT count(*) FROM " + tableName);
+        return atomicInteger.get();
     }
 }

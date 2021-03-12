@@ -27,7 +27,7 @@ public class Main extends JavaPlugin {
     private static NyEconomyAPI economyAPI;
     private static Main main;
 
-    private boolean logStatus;
+    private boolean logStatus, debug;
     public List<String> vaults = new ArrayList<>();
     public String prefix;
 
@@ -37,6 +37,10 @@ public class Main extends JavaPlugin {
 
     public static NyEconomyAPI getNyEconomyAPI() {
         return economyAPI;
+    }
+
+    public boolean isDebug() {
+        return this.debug;
     }
 
     @Override
@@ -61,9 +65,6 @@ public class Main extends JavaPlugin {
         }
         // 注册排行榜
         new TopCache();
-        // 刷新排行
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> AbstractStorgeHandler.getHandler().refreshTop(),
-                20L * getConfig().getInt("refresh-delay"), 20L * getConfig().getInt("refresh-delay"));
         // 设置状态
         logStatus = true;
         // 载入配置
@@ -91,6 +92,7 @@ public class Main extends JavaPlugin {
         saveDefaultConfig();
         reloadConfig();
         prefix = getConfig().getString("Message.Prefix").replace("&", "§");
+        debug = getConfig().getBoolean("debug");
         // 输出 PlaceholderAPI 挂钩信息
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
             this.log("§b[NyEconomy]§f  §a> §e成功挂钩 PlaceholderAPI §a✔");
@@ -115,6 +117,9 @@ public class Main extends JavaPlugin {
         this.loadCommodity();
         this.log("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
         this.log("§b[NyEconomy]§f ================================");
+        if (TopCache.getInstance() != null) {
+            TopCache.getInstance().refreshTask();
+        }
     }
 
     private void loadCurrencies() {

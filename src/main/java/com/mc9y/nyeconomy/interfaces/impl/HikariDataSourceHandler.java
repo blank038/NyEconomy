@@ -17,7 +17,7 @@ public class HikariDataSourceHandler extends AbstractDataSourceHandlerImpl {
 
     public HikariDataSourceHandler() {
         HikariConfig config = new HikariConfig();
-        config.setPoolName(Main.getInstance().getDescription().getName() + "Pool");
+        config.setPoolName(Main.getInstance().getDescription().getName() + "-Pool");
         config.setJdbcUrl(Main.getInstance().getConfig().getString("data-option.url"));
         config.setUsername(Main.getInstance().getConfig().getString("data-option.user"));
         config.setPassword(Main.getInstance().getConfig().getString("data-option.password"));
