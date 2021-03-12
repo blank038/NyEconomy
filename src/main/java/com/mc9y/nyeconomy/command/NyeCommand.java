@@ -4,6 +4,9 @@ import com.mc9y.nyeconomy.Commodity;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.api.event.PlayerBuyCommodityEvent;
 import com.mc9y.nyeconomy.data.AccountCache;
+import com.mc9y.nyeconomy.data.AccountTopCache;
+import com.mc9y.nyeconomy.data.TopCache;
+import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -17,6 +20,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Blank038
@@ -82,6 +86,9 @@ public class NyeCommand implements CommandExecutor {
                     break;
                 case "take":
                     this.change(sender, args, 1);
+                    break;
+                case "top":
+                    this.top(sender, args);
                     break;
                 default:
                     sender.sendMessage(INSTANCE.prefix + "§c命令参数不存在, 输入 §f/" + label + " help §c查看命令帮助！");
@@ -313,12 +320,7 @@ public class NyeCommand implements CommandExecutor {
      */
     private void deletePlayerCurrency(CommandSender sender, String[] args) {
         if (sender.hasPermission("nye.admin")) {
-            if (args.length <= 1) {
-                sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailType").replace("&", "§"));
-                return;
-            }
-            if (!INSTANCE.vaults.contains(args[1])) {
-                sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailCurrency").replace("&", "§"));
+            if (checkCurrency(sender, args)) {
                 return;
             }
             INSTANCE.vaults.remove(args[1]);
@@ -337,6 +339,31 @@ public class NyeCommand implements CommandExecutor {
         } else {
             sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
         }
+    }
+
+    private void top(CommandSender sender, String[] args) {
+        if (sender.hasPermission("nye.top")) {
+            if (checkCurrency(sender, args)) {
+                return;
+            }
+            AbstractStorgeHandler.getHandler().refreshTop();
+            System.out.println("ovo");
+            for (Map.Entry<Integer, AccountTopCache.Entry<String, Integer>> entry : TopCache.getInstance().getTopData(args[1]).entrySet()) {
+                sender.sendMessage(entry.getKey() + ": " + entry.getValue().getName() + " > " + entry.getValue().getCount());
+            }
+        }
+    }
+
+    private boolean checkCurrency(CommandSender sender, String[] args) {
+        if (args.length <= 1) {
+            sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailType").replace("&", "§"));
+            return true;
+        }
+        if (!INSTANCE.vaults.contains(args[1])) {
+            sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailCurrency").replace("&", "§"));
+            return true;
+        }
+        return false;
     }
 
     /**

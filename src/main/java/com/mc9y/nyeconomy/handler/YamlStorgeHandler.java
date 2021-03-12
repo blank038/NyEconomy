@@ -52,4 +52,9 @@ public class YamlStorgeHandler extends AbstractStorgeHandler {
             entry.getValue().save();
         }
     }
+
+    @Override
+    public synchronized void refreshTop() {
+
+    }
 }

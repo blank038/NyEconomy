@@ -1,7 +1,7 @@
 package com.mc9y.nyeconomy.interfaces.impl;
 
 import com.mc9y.nyeconomy.Main;
-import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandlerImpl;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -11,10 +11,10 @@ import java.sql.SQLException;
  * @author Blank038
  * @since 2021-03-11
  */
-public class CommonDataSourceHandlerImpl extends AbstractDataSourceHandler {
+public class CommonDataSourceHandler extends AbstractDataSourceHandlerImpl {
     private final String SQL_URL, SQL_USER, SQL_PASSWORD;
 
-    public CommonDataSourceHandlerImpl() {
+    public CommonDataSourceHandler() {
         try {
             Class.forName("com.mysql.jdbc.Driver");
         } catch (ClassNotFoundException e) {

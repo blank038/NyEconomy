@@ -3,7 +3,7 @@ data-option:
   # 玩家数据存储方式, 可选: YAML, MySQL
   type: YAML
   # MySQL的URL，例如jdbc:mysql://127.0.0.1/minecraft 格式：jdbc:mysql://MySQL地址/数据库名
-  url: jdbc:mysql://localhost/minecraft
+  url: jdbc:mysql://localhost/minecraft?autoReconnect=true&autoReconnectForPools=true
   # 数据库用户名
   user: "root1"
   # 数据库密码
@@ -12,6 +12,12 @@ data-option:
 Enable: [ ]
 #禁止哪些货币可以转账
 PayBlackList: [ ]
+# 刷新排行间隔, 单位: 秒
+refresh-delay: 600
+# 刷新间隔检测, 单位: 秒
+prev-refresh-delay: 600
+# 排行缓存数量
+cache-count: 100
 # 是否开启 Vault 经济桥
 economy-bridge:
   enable: false

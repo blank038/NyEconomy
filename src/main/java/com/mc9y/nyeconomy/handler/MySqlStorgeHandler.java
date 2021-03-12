@@ -5,12 +5,17 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
-import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandler;
-import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandlerImpl;
-import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandlerImpl;
+import com.mc9y.nyeconomy.data.AccountTopCache;
+import com.mc9y.nyeconomy.data.TopCache;
+import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandlerImpl;
+import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandler;
+import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandler;
 
 import java.sql.*;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -20,22 +25,30 @@ import java.util.concurrent.atomic.AtomicReference;
 public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public static boolean SQL_STATUS = false;
 
-    private final AbstractDataSourceHandler DATA_SOURCE;
+    private final String[] SQL_ARRAY = {
+            "CREATE TABLE IF NOT EXISTS ny_econom (user VARCHAR(30) NOT NULL, data TEXT, PRIMARY KEY ( user ))",
+            "CREATE TABLE IF NOT EXISTS ny_economy_top (user VARCHAR(30) NOT NULL, data TEXT, PRIMARY KEY ( user ))",
+            "CREATE TABLE IF NOT EXISTS ny_economy_option (option_key VARCHAR(30) NOT NULL, option_value TINYTEXT, PRIMARY KEY ( option_key ))"
+    };
+    private final AbstractDataSourceHandlerImpl DATA_SOURCE;
     private final Gson GSON = new GsonBuilder().create();
 
     public MySqlStorgeHandler() {
-        this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandlerImpl() : new CommonDataSourceHandlerImpl();
+        this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandler() : new CommonDataSourceHandler();
         this.createTable();
+        MySqlStorgeHandler.SQL_STATUS = true;
     }
 
     public void createTable() {
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
-                statement.executeUpdate();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-        }, "CREATE TABLE IF NOT EXISTS ny_economy (user VARCHAR(30) NOT NULL, data TEXT, PRIMARY KEY ( user ))");
+        for (String sql : this.SQL_ARRAY) {
+            this.DATA_SOURCE.connect((connection, statement) -> {
+                try {
+                    statement.executeUpdate();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }, sql);
+        }
     }
 
     @Override
@@ -113,6 +126,78 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     @Override
     public void save() {
 
+    }
+
+    @Override
+    public synchronized void refreshTop() {
+        AtomicLong atomic = new AtomicLong();
+        AtomicBoolean exists = new AtomicBoolean(false);
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            ResultSet resultSet = null;
+            try {
+                resultSet = statement.executeQuery();
+                while (resultSet.next()) {
+                    atomic.set(Long.parseLong(resultSet.getString(1)));
+                    exists.set(true);
+                }
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            } finally {
+                this.DATA_SOURCE.close(statement, resultSet);
+            }
+        }, "SELECT option_value from ny_economy_option where option_key='refresh_time'");
+        long prevRefreshDate = atomic.get(), now = System.currentTimeMillis();
+        // 判断时间是否达标
+        if (now >= (prevRefreshDate + Main.getInstance().getConfig().getInt("prev-refresh-delay")) || !exists.get()) {
+            // 先更新刷新时间
+            this.DATA_SOURCE.connect((connection, statement) -> {
+                try {
+                    System.out.println(exists.get());
+                    statement.setString(1, String.valueOf(now));
+                    statement.executeUpdate();
+                } catch (SQLException throwables) {
+                    throwables.printStackTrace();
+                } finally {
+                    this.DATA_SOURCE.close(statement, null);
+                }
+            }, exists.get() ? "UPDATE ny_economy_option SET option_value=? WHERE option_key='refresh_time'"
+                    : "INSERT INTO ny_economy_option (option_key,option_value) VALUES ('refresh_time',?)");
+            // 开始计算排行
+            AtomicInteger atomicInteger = new AtomicInteger();
+            this.DATA_SOURCE.connect((connection, statement) -> {
+                ResultSet resultSet = null;
+                try {
+                    resultSet = statement.executeQuery();
+                    while (resultSet.next()) {
+                        atomicInteger.set(resultSet.getInt(1));
+                    }
+                } catch (SQLException throwables) {
+                    throwables.printStackTrace();
+                } finally {
+                    this.DATA_SOURCE.close(statement, resultSet);
+                }
+            }, "SELECT count(*) FROM ny_economy");
+            // 创建集合
+            HashMap<String, AccountTopCache> cache = new HashMap<>(atomicInteger.get());
+            this.DATA_SOURCE.connect((connection, statement) -> {
+                ResultSet resultSet = null;
+                try {
+                    resultSet = statement.executeQuery();
+                    while (resultSet.next()) {
+                        AccountTopCache accountTopCache = new AccountTopCache(
+                                this.GSON.fromJson(resultSet.getString("data"), JsonObject.class)
+                        );
+                        cache.put(resultSet.getString("user"), accountTopCache);
+                    }
+                } catch (SQLException throwables) {
+                    throwables.printStackTrace();
+                } finally {
+                    this.DATA_SOURCE.close(statement, resultSet);
+                }
+            }, "SELECT * FROM ny_economy");
+            // 刷新排行
+            TopCache.getInstance().submitCache(cache);
+        }
     }
 
     public void updateCache(String name, AccountCache cache) {

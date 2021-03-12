@@ -4,12 +4,14 @@ import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.bridge.VaultBridge;
 import com.mc9y.nyeconomy.command.NyeCommand;
 import com.mc9y.nyeconomy.data.CurrencyData;
+import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
 import com.mc9y.nyeconomy.handler.YamlStorgeHandler;
 import com.mc9y.nyeconomy.hook.PlaceholderHook;
 import com.mc9y.nyeconomy.listener.PlayerListener;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -25,6 +27,7 @@ public class Main extends JavaPlugin {
     private static NyEconomyAPI economyAPI;
     private static Main main;
 
+    private boolean logStatus;
     public List<String> vaults = new ArrayList<>();
     public String prefix;
 
@@ -41,11 +44,6 @@ public class Main extends JavaPlugin {
         economyAPI = new NyEconomyAPI();
         // 检测数据类型
         boolean useMySQL = "mysql".equalsIgnoreCase(this.getConfig().getString("data-option.type"));
-        if (!hasHikariCP()) {
-            Bukkit.getConsoleSender().sendMessage("§c ✘ §f未找到 HikariCP §f已取消加载.");
-            this.setEnabled(false);
-            return;
-        }
         // 设置数据管理器
         AbstractStorgeHandler.setHandler(useMySQL ? MySqlStorgeHandler.class : YamlStorgeHandler.class);
         // 开启存储线程
@@ -61,6 +59,15 @@ public class Main extends JavaPlugin {
         if (Bukkit.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new PlaceholderHook(this).register();
         }
+        // 注册排行榜
+        new TopCache();
+        // 刷新排行
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> AbstractStorgeHandler.getHandler().refreshTop(),
+                20L * getConfig().getInt("refresh-delay"), 20L * getConfig().getInt("refresh-delay"));
+        // 设置状态
+        logStatus = true;
+        // 载入配置
+        this.loadConfig();
     }
 
     @Override
@@ -78,30 +85,36 @@ public class Main extends JavaPlugin {
     }
 
     public void loadConfig() {
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f ================================");
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b正在加载九域多经济系统...");
+        this.log("§b[NyEconomy]§f ================================");
+        this.log("§b[NyEconomy]§f  §a> §b正在加载九域多经济系统...");
         getDataFolder().mkdir();
         saveDefaultConfig();
         reloadConfig();
         prefix = getConfig().getString("Message.Prefix").replace("&", "§");
         // 输出 PlaceholderAPI 挂钩信息
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 PlaceholderAPI §a✔");
+            this.log("§b[NyEconomy]§f  §a> §e成功挂钩 PlaceholderAPI §a✔");
         } else {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §7未检测到 PlaceholderAPI §c✘");
+            this.log("§b[NyEconomy]§f  §a> §7未检测到 PlaceholderAPI §c✘");
         }
         // 输出 Vault 是否挂钩
         VaultBridge.register();
         VaultBridge.checkCurrencyFile();
         if (VaultBridge.getVaultBridge() != null) {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e成功挂钩 Vault 经济桥 §a✔");
+            this.log("§b[NyEconomy]§f  §a> §e成功挂钩 Vault 经济桥 §a✔");
         } else {
-            Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §7未检测到 Vault 经济桥 §c✘");
+            this.log("§b[NyEconomy]§f  §a> §7未检测到 Vault 经济桥 §c✘");
+        }
+        // 检测是否含有 HikariCP
+        if (this.hasHikariCP()) {
+            this.log("§b[NyEconomy]§f  §a> §eHikariCP 状态: §a✔ ");
+        } else {
+            this.log("§b[NyEconomy]§f  §a> §7HikariCP 状态: §c✘");
         }
         this.loadCurrencies();
         this.loadCommodity();
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f ================================");
+        this.log("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
+        this.log("§b[NyEconomy]§f ================================");
     }
 
     private void loadCurrencies() {
@@ -110,23 +123,23 @@ public class Main extends JavaPlugin {
         currencies.mkdir();
         vaults.clear();
         CurrencyData.CURRENCY_DATA.clear();
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e开始加载经济货币项");
+        this.log("§b[NyEconomy]§f  §a> §e开始加载经济货币项");
         for (String i : getConfig().getStringList("Enable")) {
             File cf = new File(getDataFolder() + "/Currencies/", i + ".yml");
             if (cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"))) {
                 vaults.add(i);
                 CurrencyData.CURRENCY_DATA.putIfAbsent(i, new CurrencyData(i));
-                Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a -> §2成功加载货币项: §f" + i);
+                this.log("§b[NyEconomy]§f  §a -> §2成功加载货币项: §f" + i);
             } else {
-                Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a -> §c货币项 §f" + i + " §c不存在");
+                this.log("§b[NyEconomy]§f  §a -> §c货币项 §f" + i + " §c不存在");
             }
         }
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e经济加载完成, 共加载 §f%amount% §e项"
+        this.log("§b[NyEconomy]§f  §a> §e经济加载完成, 共加载 §f%amount% §e项"
                 .replace("%amount%", vaults.size() + ""));
     }
 
     private void loadCommodity() {
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e开始加载商店物品项");
+        this.log("§b[NyEconomy]§f  §a> §e开始加载商店物品项");
         Commodity.COMMODITY_MAP.clear();
         File shop = new File(getDataFolder(), "shop.yml");
         if (!shop.exists()) {
@@ -143,7 +156,7 @@ public class Main extends JavaPlugin {
                 fails++;
             }
         }
-        Bukkit.getConsoleSender().sendMessage("§b[NyEconomy]§f  §a> §e已加载商品 (§2成功§f[" + Commodity.COMMODITY_MAP.size() + "] §c失败§f[" + fails + "]§e)");
+        this.log("§b[NyEconomy]§f  §a> §e已加载商品 (§2成功§f[" + Commodity.COMMODITY_MAP.size() + "] §c失败§f[" + fails + "]§e)");
     }
 
     public boolean hasHikariCP() {
@@ -152,6 +165,12 @@ public class Main extends JavaPlugin {
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    private void log(String msg) {
+        if (this.logStatus) {
+            Bukkit.getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
         }
     }
 }

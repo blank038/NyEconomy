@@ -3,7 +3,6 @@ package com.mc9y.nyeconomy.bridge;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.CurrencyData;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
-import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
 import net.milkbowl.vault.economy.AbstractEconomy;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;

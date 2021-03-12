@@ -55,6 +55,11 @@ public abstract class AbstractStorgeHandler {
      */
     public abstract void save();
 
+    /**
+     * 刷新金币排行
+     */
+    public abstract void refreshTop();
+
     public AccountCache getPlayerCache(String name) {
         return null;
     }

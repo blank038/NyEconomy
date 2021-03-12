@@ -8,7 +8,7 @@ import java.sql.*;
  * @author Blank038
  * @since 2021-03-11
  */
-public abstract class AbstractDataSourceHandler implements IDataSourceHandler {
+public abstract class AbstractDataSourceHandlerImpl implements IDataSourceHandler {
     public static boolean SQL_STATUS = false;
 
     private Connection connection;
