@@ -26,7 +26,7 @@ public class TopBuilder {
         // 开始下标
         int start = Math.min(page * 10, max), end = Math.min((page + 1) * 10, max);
         for (int i = start; i < end; i++) {
-            if (i > top.size()) {
+            if (i > top.size() || top.get(i) == null) {
                 this.MESSAGE_LIST.add(Main.getInstance().getConfig().getString("Message.top.line").replace("%top%", String.valueOf(i + 1))
                         .replace("%name%", "无").replace("%count%", "无"));
                 continue;

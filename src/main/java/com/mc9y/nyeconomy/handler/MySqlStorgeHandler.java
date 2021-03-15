@@ -10,6 +10,7 @@ import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandlerImpl;
 import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandler;
 import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandler;
+import org.bukkit.Bukkit;
 
 import java.sql.*;
 import java.util.HashMap;
@@ -26,7 +27,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public static boolean SQL_STATUS = false;
 
     private final String[] SQL_ARRAY = {
-            "CREATE TABLE IF NOT EXISTS ny_econom (user VARCHAR(30) NOT NULL, data TEXT, PRIMARY KEY ( user ))",
+            "CREATE TABLE IF NOT EXISTS ny_economy (user VARCHAR(30) NOT NULL, data TEXT, PRIMARY KEY ( user ))",
             "CREATE TABLE IF NOT EXISTS ny_economy_top (user VARCHAR(30) NOT NULL, data TEXT, PRIMARY KEY ( user ))",
             "CREATE TABLE IF NOT EXISTS ny_economy_option (option_key VARCHAR(30) NOT NULL, option_value TINYTEXT, PRIMARY KEY ( option_key ))"
     };
@@ -36,7 +37,19 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     public MySqlStorgeHandler() {
         this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandler() : new CommonDataSourceHandler();
         this.createTable();
-        MySqlStorgeHandler.SQL_STATUS = true;
+        // 建立线程定时请求, 避免超时
+        Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(), () -> {
+            this.DATA_SOURCE.connect((connection, statement) -> {
+                ResultSet resultSet = null;
+                try {
+                    resultSet = statement.executeQuery();
+                } catch (SQLException throwables) {
+                    throwables.printStackTrace();
+                } finally {
+                    this.DATA_SOURCE.close(statement, resultSet);
+                }
+            }, "show full columns from ny_economy");
+        }, 1200L, 1200L);
     }
 
     public void createTable() {
@@ -44,6 +57,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             this.DATA_SOURCE.connect((connection, statement) -> {
                 try {
                     statement.executeUpdate();
+                    MySqlStorgeHandler.SQL_STATUS = true;
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
