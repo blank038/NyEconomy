@@ -38,18 +38,16 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandler() : new CommonDataSourceHandler();
         this.createTable();
         // 建立线程定时请求, 避免超时
-        Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(), () -> {
-            this.DATA_SOURCE.connect((connection, statement) -> {
-                ResultSet resultSet = null;
-                try {
-                    resultSet = statement.executeQuery();
-                } catch (SQLException throwables) {
-                    throwables.printStackTrace();
-                } finally {
-                    this.DATA_SOURCE.close(statement, resultSet);
-                }
-            }, "show full columns from ny_economy");
-        }, 1200L, 1200L);
+        Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(), () -> this.DATA_SOURCE.connect((connection, statement) -> {
+            ResultSet resultSet = null;
+            try {
+                resultSet = statement.executeQuery();
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            } finally {
+                this.DATA_SOURCE.close(statement, resultSet);
+            }
+        }, "show full columns from ny_economy"), 1200L, 1200L);
     }
 
     public void createTable() {
@@ -70,7 +68,6 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         if (status == 1) {
             return 0;
         }
-        System.out.println();
         if (status == 0 || this.isExists(name)) {
             AccountCache cache = this.getPlayerCache(name);
             // 模拟提交玩家数据, 如果玩家不存在
@@ -160,7 +157,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 this.DATA_SOURCE.close(statement, resultSet);
             }
         }, "SELECT option_value from ny_economy_option where option_key='refresh_time'");
-        long prevRefreshDate = atomic.get(), now = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
         // 先更新刷新时间
         this.DATA_SOURCE.connect((connection, statement) -> {
             try {
@@ -193,31 +190,6 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         }, "SELECT * FROM ny_economy");
         // 刷新排行缓存
         TopCache.getInstance().submitCache(cache);
-//        // 判断时间是否达标
-//        if (now >= (prevRefreshDate + Main.getInstance().getConfig().getInt("prev-refresh-delay")) || !exists.get()) {
-//
-//        } else {
-//            // 开始计算排行
-//            HashMap<String, AccountTopCache> cache = new HashMap<>(this.getTableCount("ny_economy_top"));
-//            this.DATA_SOURCE.connect((connection, statement) -> {
-//                ResultSet resultSet = null;
-//                try {
-//                    resultSet = statement.executeQuery();
-//                    while (resultSet.next()) {
-//                        AccountTopCache accountTopCache = new AccountTopCache(
-//                                this.GSON.fromJson(resultSet.getString("data"), JsonObject.class)
-//                        );
-//                        cache.put(resultSet.getString("user"), accountTopCache);
-//                    }
-//                } catch (SQLException throwables) {
-//                    throwables.printStackTrace();
-//                } finally {
-//                    this.DATA_SOURCE.close(statement, resultSet);
-//                }
-//            }, "SELECT * FROM ny_economy_top");
-//            // 刷新排行缓存
-//            TopCache.getInstance().submitCache(cache);
-//        }
     }
 
     public void updateCache(String name, AccountCache cache) {

@@ -6,11 +6,14 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
+/**
+ * @author Blank038
+ */
 public class PlayerBuyCommodityEvent extends Event
         implements Cancellable {
     private static final HandlerList handler = new HandlerList();
-    private Player player;
-    private Commodity commodity;
+    private final Player player;
+    private final Commodity commodity;
     private int price;
     private boolean cancelled;
 
