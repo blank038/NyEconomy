@@ -58,6 +58,9 @@ public class AccountCache {
             // 计算数据
             for (int i = 0; i < array.size(); i++) {
                 JsonObject temp = array.get(i).getAsJsonObject();
+                if (temp == null || temp.isJsonNull() || temp.get("type").isJsonNull()) {
+                    continue;
+                }
                 String name = temp.get("type").getAsString();
                 int count = temp.get("count").getAsInt();
                 if (this.CURRENCY_MAP.containsKey(name)) {

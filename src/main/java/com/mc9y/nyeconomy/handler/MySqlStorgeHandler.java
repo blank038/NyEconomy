@@ -177,9 +177,11 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             try {
                 resultSet = statement.executeQuery();
                 while (resultSet.next()) {
-                    AccountTopCache accountTopCache = new AccountTopCache(
-                            this.GSON.fromJson(resultSet.getString("data"), JsonObject.class)
-                    );
+                    String data = resultSet.getString("data");
+                    if (data == null) {
+                        continue;
+                    }
+                    AccountTopCache accountTopCache = new AccountTopCache(this.GSON.fromJson(data, JsonObject.class));
                     cache.put(resultSet.getString("user"), accountTopCache);
                 }
             } catch (SQLException throwables) {

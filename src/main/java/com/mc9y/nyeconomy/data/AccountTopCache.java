@@ -18,6 +18,9 @@ public class AccountTopCache {
             JsonArray array = jsonObject.getAsJsonArray("currencys");
             for (int i = 0; i < array.size(); i++) {
                 JsonObject object = array.get(i).getAsJsonObject();
+                if (object == null || object.isJsonNull() || object.get("type").isJsonNull()) {
+                    continue;
+                }
                 String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
                         Main.getInstance().getConfig().getString("economy-bridge.currency"));
                 TEMP_MAP.put(key, object.get("count").getAsInt());
