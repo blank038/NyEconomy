@@ -166,7 +166,7 @@ public class Main extends JavaPlugin {
 
     public boolean hasHikariCP() {
         try {
-            Class.forName("com.zaxxer.hikari.HikariDataSource");
+            Class.forName("com.zaxxer.hikari.HikariConfig", false, this.getClassLoader());
             return true;
         } catch (Exception e) {
             return false;
