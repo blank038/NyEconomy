@@ -5,6 +5,7 @@ depend:
 softdepend:
   - PlaceholderAPI
   - Vault
+api-version: 1.13
 version: ${project.version}
 commands:
   nyeconomy:
