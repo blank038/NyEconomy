@@ -25,14 +25,14 @@ import java.util.List;
  */
 public class Main extends JavaPlugin {
     private static NyEconomyAPI economyAPI;
-    private static Main main;
+    private static Main instance;
 
     private boolean logStatus, debug;
     public List<String> vaults = new ArrayList<>();
     public String prefix;
 
     public static Main getInstance() {
-        return main;
+        return instance;
     }
 
     public static NyEconomyAPI getNyEconomyAPI() {
@@ -81,7 +81,7 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        main = this;
+        instance = this;
         this.loadConfig();
     }
 
@@ -133,7 +133,7 @@ public class Main extends JavaPlugin {
             File cf = new File(getDataFolder() + "/Currencies/", i + ".yml");
             if (cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"))) {
                 vaults.add(i);
-                CurrencyData.CURRENCY_DATA.putIfAbsent(i, new CurrencyData(i));
+                CurrencyData.CURRENCY_DATA.put(i, new CurrencyData(i));
                 this.log("§b[NyEconomy]§f  §a -> §2成功加载货币项: §f" + i);
             } else {
                 this.log("§b[NyEconomy]§f  §a -> §c货币项 §f" + i + " §c不存在");
@@ -177,5 +177,13 @@ public class Main extends JavaPlugin {
         if (this.logStatus) {
             Bukkit.getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
         }
+    }
+
+    public static String getString(String key, boolean... prefix) {
+        String message = instance.getConfig().getString(key, "");
+        if (prefix.length > 0 && prefix[0]) {
+            message = instance.getConfig().getString("Message.Prefix") + message;
+        }
+        return ChatColor.translateAlternateColorCodes('&', message);
     }
 }

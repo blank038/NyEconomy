@@ -42,7 +42,7 @@ Message:
       - "&8- &b/%c pay <玩家> <货币> <数量> &f向玩家转账"
       - "&8- &b/%c create <货币> &f创建新的货币"
       - "&8- &b/%c look <玩家> &f查看玩家货币信息"
-      - "&8- &b/%c give <玩家> <货币> <数量> &f给予玩家货币"
+      - "&8- &b/%c give <玩家> <货币> <数量> [是否提示] &f给予玩家货币"
       - "&8- &b/%c take <玩家> <货币> <数量> &f扣除玩家货币"
       - "&8- &b/%c reset <玩家> <货币> &f清空玩家指定货币"
       - "&8- &b/%c delete <货币> &f删除某个货币"
@@ -63,6 +63,7 @@ Message:
     header: "&a----========= &f%currency% &6排行榜 &a=========----"
     line: "&e%top%. &b%name% &f- &b%count%"
   set: "&a成功设置玩家 &f%player% &f%type% &a数量为 &f%amount%"
+  receive: "收到来自 &a%sender% &f给予的 &a%amount%%type%"
 #命令使用冷却时间, 单位：秒
 CommandDelay: 1
 # 存储间隔, 单位: 秒

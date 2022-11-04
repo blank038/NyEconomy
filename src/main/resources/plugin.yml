@@ -1,7 +1,7 @@
 name: NyEconomy
 main: com.mc9y.nyeconomy.Main
 depend:
-  - PokemonAPI
+  - AyCore
 softdepend:
   - PlaceholderAPI
   - Vault

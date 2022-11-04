@@ -146,22 +146,30 @@ public class NyeCommand implements CommandExecutor {
                 case 0:
                     // 给予
                     Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
-                    sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.Give").replace("&", "§")
-                            .replace("%type%", args[2]).replace("%amount%", amount + "")
+                    sender.sendMessage(Main.getString("Message.Give", true).replace("&", "§")
+                            .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount))
                             .replace("%player%", args[1]));
+                    if (args.length > 4 && args[4].equalsIgnoreCase("true")) {
+                        Player target = Bukkit.getPlayerExact(args[1]);
+                        if (target != null && target.isOnline()) {
+                            target.sendMessage(Main.getString("Message.receive", true).replace("%type%", args[2])
+                                    .replace("%amount%", String.valueOf(amount)).replace("%sender%", sender.getName())
+                                    .replace("%player%", args[1]));
+                        }
+                    }
                     break;
                 case 1:
                     // 减少
                     Main.getNyEconomyAPI().withdraw(args[2], args[1], amount);
                     sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.Take").replace("&", "§")
-                            .replace("%type%", args[2]).replace("%amount%", amount + "")
-                            .replace("%player%", args[1]).replace("%last%", Main.getNyEconomyAPI().getBalance(args[2], args[1]) + ""));
+                            .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount))
+                            .replace("%player%", args[1]).replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], args[1]))));
                     break;
                 case 2:
                     // 设置
                     Main.getNyEconomyAPI().set(args[2], args[1], amount);
                     sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.set").replace("&", "§")
-                            .replace("%type%", args[2]).replace("%amount%", amount + "").replace("%player%", args[1]));
+                            .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount)).replace("%player%", args[1]));
                     break;
                 default:
                     break;
@@ -256,6 +264,10 @@ public class NyeCommand implements CommandExecutor {
             try {
                 amount = Integer.parseInt(args[3]);
             } catch (Exception e) {
+                sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailAmount").replace("&", "§"));
+                return;
+            }
+            if (amount <= 0) {
                 sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailAmount").replace("&", "§"));
                 return;
             }
