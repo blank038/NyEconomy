@@ -17,6 +17,9 @@ public class PlaceholderHook extends PlaceholderExpansion {
 
     @Override
     public String onPlaceholderRequest(Player player, String s) {
+        if (player == null || !player.isOnline()) {
+            return "";
+        }
         if ("mysql".equalsIgnoreCase(INSTANCE.getConfig().getString("data-option.type"))) {
             if (AccountCache.CACHE_DATA.containsKey(player.getName())) {
                 return String.valueOf(AccountCache.CACHE_DATA.get(player.getName()).balance(s));
