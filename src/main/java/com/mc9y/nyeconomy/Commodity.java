@@ -11,28 +11,28 @@ import java.util.List;
 public class Commodity {
     public static final HashMap<String, Commodity> COMMODITY_MAP = new HashMap<>();
 
-    private final String ECO_TYPE;
-    private final int AMOUNT;
-    private final List<String> COMMANDS;
-    private final String DISPLAY_NAME;
+    private final String economyType;
+    private final int amount;
+    private final List<String> commands;
+    private final String displayName;
 
     public Commodity(String type, int amount, List<String> commands, String name) {
-        this.ECO_TYPE = type;
-        this.AMOUNT = amount;
-        this.COMMANDS = commands;
-        this.DISPLAY_NAME = name;
+        this.economyType = type;
+        this.amount = amount;
+        this.commands = commands;
+        this.displayName = name;
     }
 
     public String getType() {
-        return ECO_TYPE;
+        return economyType;
     }
 
     public int getAmount() {
-        return AMOUNT;
+        return amount;
     }
 
     public List<String> getCommands() {
-        return COMMANDS;
+        return commands;
     }
 
     public void give(String name) {
@@ -42,6 +42,6 @@ public class Commodity {
     }
 
     public String getName() {
-        return DISPLAY_NAME;
+        return displayName;
     }
 }

@@ -15,43 +15,43 @@ import java.util.HashMap;
 public class CurrencyData {
     public static final HashMap<String, CurrencyData> CURRENCY_DATA = new HashMap<>();
 
-    private final File TAR_FILE;
-    private final FileConfiguration CONFIGURATION;
+    private final File tarFile;
+    private final FileConfiguration configuration;
 
     public CurrencyData(String name) {
-        TAR_FILE = new File(Main.getInstance().getDataFolder() + "/Currencies/", name + ".yml");
-        CONFIGURATION = YamlConfiguration.loadConfiguration(TAR_FILE);
+        tarFile = new File(Main.getInstance().getDataFolder() + "/Currencies/", name + ".yml");
+        configuration = YamlConfiguration.loadConfiguration(tarFile);
     }
 
     public void save() {
         try {
-            CONFIGURATION.save(TAR_FILE);
+            configuration.save(tarFile);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public int getUserBalance(String name) {
-        if (CONFIGURATION.contains(name)) {
-            return CONFIGURATION.getInt(name);
+        if (configuration.contains(name)) {
+            return configuration.getInt(name);
         } else {
             return 0;
         }
     }
 
     public void deposit(String name, int amount) {
-        CONFIGURATION.set(name, (CONFIGURATION.getInt(name) + amount));
+        configuration.set(name, (configuration.getInt(name) + amount));
     }
 
     public void reset(String name) {
-        CONFIGURATION.set(name, 0);
+        configuration.set(name, 0);
     }
 
     public void withdraw(String name, int amount) {
-        CONFIGURATION.set(name, (Math.max(CONFIGURATION.getInt(name) - amount, 0)));
+        configuration.set(name, (Math.max(configuration.getInt(name) - amount, 0)));
     }
 
     public void set(String name, int amount) {
-        CONFIGURATION.set(name, (Math.max(amount, 0)));
+        configuration.set(name, (Math.max(amount, 0)));
     }
 }

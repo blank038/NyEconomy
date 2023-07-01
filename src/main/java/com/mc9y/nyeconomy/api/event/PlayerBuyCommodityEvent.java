@@ -11,7 +11,7 @@ import org.bukkit.event.HandlerList;
  */
 public class PlayerBuyCommodityEvent extends Event
         implements Cancellable {
-    private static final HandlerList handler = new HandlerList();
+    private static final HandlerList HANDLER_LIST = new HandlerList();
     private final Player player;
     private final Commodity commodity;
     private int price;
@@ -41,11 +41,11 @@ public class PlayerBuyCommodityEvent extends Event
 
     @Override
     public HandlerList getHandlers() {
-        return handler;
+        return HANDLER_LIST;
     }
 
     public static HandlerList getHandlerList() {
-        return handler;
+        return HANDLER_LIST;
     }
 
     @Override

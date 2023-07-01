@@ -16,9 +16,6 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,7 +65,7 @@ public class NyeCommand implements CommandExecutor {
                     this.resetPlayer(sender, args);
                     break;
                 case "delete":
-                    this.deletePlayerCurrency(sender, args);
+                    this.deleteCurrency(sender, args);
                     break;
                 case "reload":
                     if (sender.hasPermission("nye.admin")) {
@@ -149,7 +146,7 @@ public class NyeCommand implements CommandExecutor {
                     sender.sendMessage(Main.getString("Message.Give", true).replace("&", "§")
                             .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount))
                             .replace("%player%", args[1]));
-                    if (args.length > 4 && args[4].equalsIgnoreCase("true")) {
+                    if (args.length > 4 && "true".equalsIgnoreCase(args[4])) {
                         Player target = Bukkit.getPlayerExact(args[1]);
                         if (target != null && target.isOnline()) {
                             target.sendMessage(Main.getString("Message.receive", true).replace("%type%", args[2])
@@ -229,20 +226,6 @@ public class NyeCommand implements CommandExecutor {
             // 开始扣除玩家货币
             Main.getNyEconomyAPI().withdraw(commodity.getType(), player.getName(), event.getPrice());
             commodity.give(player.getName());
-            if (Bukkit.getPluginManager().getPlugin("PokeQuest") != null && Bukkit.getPluginManager().getPlugin("PokeQuest").isEnabled()) {
-                // 反射提交任务
-                try {
-                    Class<?> c = Class.forName(" com.blank038.pokequest.Main");
-                    Field field = c.getDeclaredField("questManager");
-                    field.setAccessible(true);
-                    Class<?> questManager = field.getDeclaringClass();
-                    Method method = questManager.getMethod("submitQuest", String.class, String.class, String.class);
-                    method.invoke(questManager, player.getName(), "BuyCommodity", commodity.getType());
-                    field.setAccessible(false);
-                } catch (ClassNotFoundException | NoSuchFieldException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                    e.printStackTrace();
-                }
-            }
             player.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.BuySuccess").replace("&", "§")
                     .replace("%commodity%", commodity.getName()));
         }
@@ -340,7 +323,7 @@ public class NyeCommand implements CommandExecutor {
     /**
      * 扣除玩家货币
      */
-    private void deletePlayerCurrency(CommandSender sender, String[] args) {
+    private void deleteCurrency(CommandSender sender, String[] args) {
         if (sender.hasPermission("nye.admin")) {
             if (checkCurrency(sender, args)) {
                 return;
@@ -404,11 +387,11 @@ public class NyeCommand implements CommandExecutor {
             sender.sendMessage(INSTANCE.prefix + "§c请输入玩家名！");
             return true;
         }
-        if (args.length <= 2) {
+        if (args.length == 2) {
             sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailType").replace("&", "§"));
             return true;
         }
-        if (args.length <= 3) {
+        if (args.length == 3) {
             sender.sendMessage(INSTANCE.prefix + INSTANCE.getConfig().getString("Message.FailAmount").replace("&", "§"));
             return true;
         }

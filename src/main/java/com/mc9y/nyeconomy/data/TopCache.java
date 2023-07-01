@@ -15,9 +15,9 @@ import java.util.Map;
 public class TopCache {
     private static TopCache topCache;
 
-    private final HashMap<String, HashMap<Integer, AccountTopCache.Entry<String, Integer>>> TOP_DATA = new HashMap<>();
+    private final HashMap<String, HashMap<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
     private BukkitTask task;
-    private boolean ENABLE_TOP;
+    private boolean enableTop;
 
     public static TopCache getInstance() {
         return topCache;
@@ -28,11 +28,11 @@ public class TopCache {
     }
 
     public boolean isEnabled() {
-        return this.ENABLE_TOP;
+        return this.enableTop;
     }
 
     public void setTopEnabled(boolean topEnabled) {
-        this.ENABLE_TOP = topEnabled;
+        this.enableTop = topEnabled;
     }
 
     public void refreshTask() {
@@ -56,14 +56,14 @@ public class TopCache {
      */
     public void submitCache(HashMap<String, AccountTopCache> cacheData) {
         // 清空数据
-        this.TOP_DATA.clear();
+        this.topData.clear();
         for (String currency : Main.getInstance().vaults) {
-            this.TOP_DATA.put(currency, this.calc(currency, cacheData));
+            this.topData.put(currency, this.calc(currency, cacheData));
         }
     }
 
     public HashMap<Integer, AccountTopCache.Entry<String, Integer>> getTopData(String currency) {
-        return this.TOP_DATA.getOrDefault(currency, new HashMap<>(0));
+        return this.topData.getOrDefault(currency, new HashMap<>(0));
     }
 
     private HashMap<Integer, AccountTopCache.Entry<String, Integer>> calc(String currency, HashMap<String, AccountTopCache> cacheData) {

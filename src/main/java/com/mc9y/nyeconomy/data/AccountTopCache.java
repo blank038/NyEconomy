@@ -11,7 +11,7 @@ import java.util.HashMap;
  * @since 2021-03-11
  */
 public class AccountTopCache {
-    private final HashMap<String, Integer> TEMP_MAP = new HashMap<>();
+    private final HashMap<String, Integer> tempMap = new HashMap<>();
 
     public AccountTopCache(JsonObject jsonObject) {
         if (jsonObject.has("currencys")) {
@@ -23,7 +23,7 @@ public class AccountTopCache {
                 }
                 String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
                         Main.getInstance().getConfig().getString("economy-bridge.currency"));
-                TEMP_MAP.put(key, object.get("count").getAsInt());
+                tempMap.put(key, object.get("count").getAsInt());
             }
         }
         if (jsonObject.has("top_data")) {
@@ -32,13 +32,13 @@ public class AccountTopCache {
                 JsonObject object = array.get(i).getAsJsonObject();
                 String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
                         Main.getInstance().getConfig().getString("economy-bridge.currency"));
-                TEMP_MAP.put(key, object.get("count").getAsInt());
+                tempMap.put(key, object.get("count").getAsInt());
             }
         }
     }
 
     public int getCurrencyCount(String key) {
-        return this.TEMP_MAP.getOrDefault(key, 0);
+        return this.tempMap.getOrDefault(key, 0);
     }
 
     public void setRank(String currency, int top) {

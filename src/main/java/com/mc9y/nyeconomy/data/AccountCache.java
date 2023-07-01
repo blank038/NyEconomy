@@ -14,22 +14,22 @@ import java.util.Map;
 public class AccountCache {
     public static final HashMap<String, AccountCache> CACHE_DATA = new HashMap<>();
 
-    private final HashMap<String, Integer> CURRENCY_MAP = new HashMap<>();
+    private final HashMap<String, Integer> currencyMap = new HashMap<>();
 
     public AccountCache(JsonObject jsonObject) {
         this.update(jsonObject);
     }
 
     public int balance(String type) {
-        return this.CURRENCY_MAP.getOrDefault(Main.getNyEconomyAPI().checkVaultType(type), 0);
+        return this.currencyMap.getOrDefault(Main.getNyEconomyAPI().checkVaultType(type), 0);
     }
 
     public AccountCache set(String type, int amount) {
         String lastType = Main.getNyEconomyAPI().checkVaultType(type);
-        if (this.CURRENCY_MAP.containsKey(lastType)) {
-            this.CURRENCY_MAP.replace(lastType, amount);
+        if (this.currencyMap.containsKey(lastType)) {
+            this.currencyMap.replace(lastType, amount);
         } else {
-            this.CURRENCY_MAP.put(lastType, amount);
+            this.currencyMap.put(lastType, amount);
         }
         return this;
     }
@@ -37,7 +37,7 @@ public class AccountCache {
     public JsonObject toJsonObject() {
         JsonObject object = new JsonObject();
         JsonArray array = new JsonArray();
-        for (Map.Entry<String, Integer> entry : this.CURRENCY_MAP.entrySet()) {
+        for (Map.Entry<String, Integer> entry : this.currencyMap.entrySet()) {
             JsonObject temp = new JsonObject();
             temp.addProperty("type", entry.getKey());
             temp.addProperty("count", entry.getValue());
@@ -63,10 +63,10 @@ public class AccountCache {
                 }
                 String name = temp.get("type").getAsString();
                 int count = temp.get("count").getAsInt();
-                if (this.CURRENCY_MAP.containsKey(name)) {
-                    this.CURRENCY_MAP.replace(name, count);
+                if (this.currencyMap.containsKey(name)) {
+                    this.currencyMap.replace(name, count);
                 } else {
-                    this.CURRENCY_MAP.put(name, count);
+                    this.currencyMap.put(name, count);
                 }
             }
         }
