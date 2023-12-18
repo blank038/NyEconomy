@@ -1,7 +1,10 @@
 package com.mc9y.nyeconomy.handler;
 
+import com.mc9y.nyeconomy.data.AccountTopCache;
 import com.mc9y.nyeconomy.data.CurrencyData;
+import com.mc9y.nyeconomy.data.TopCache;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -55,6 +58,15 @@ public class YamlStorgeHandler extends AbstractStorgeHandler {
 
     @Override
     public synchronized void refreshTop() {
-
+        Map<String, AccountTopCache> map = new HashMap<>();
+        CurrencyData.CURRENCY_DATA.forEach((k, v) -> {
+            for (String player : v.getAllPlayers()) {
+                if (!map.containsKey(player)) {
+                    map.put(player, new AccountTopCache());
+                }
+                map.get(player).getTempMap().putIfAbsent(k, v.getUserBalance(player));
+            }
+        });
+        TopCache.getInstance().submitCache(map);
     }
 }

@@ -22,8 +22,8 @@ public class AccountTopCache {
                 if (object == null || object.isJsonNull() || object.get("type").isJsonNull()) {
                     continue;
                 }
-                String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
-                        Main.getInstance().getConfig().getString("economy-bridge.currency"));
+                String key = object.get("type").getAsString()
+                        .replace("60CFC2D63B8F0E9D", Main.getString("economy-bridge.currency"));
                 tempMap.put(key, object.get("count").getAsInt());
             }
         }
@@ -31,36 +31,39 @@ public class AccountTopCache {
             JsonArray array = jsonObject.getAsJsonArray("top_data");
             for (int i = 0; i < array.size(); i++) {
                 JsonObject object = array.get(i).getAsJsonObject();
-                String key = object.get("type").getAsString().replace("60CFC2D63B8F0E9D",
-                        Main.getInstance().getConfig().getString("economy-bridge.currency"));
+                String key = object.get("type").getAsString()
+                        .replace("60CFC2D63B8F0E9D", Main.getString("economy-bridge.currency"));
                 tempMap.put(key, object.get("count").getAsInt());
             }
         }
+    }
+
+    public AccountTopCache() {
     }
 
     public int getCurrencyCount(String key) {
         return this.tempMap.getOrDefault(key, 0);
     }
 
-    public void setRank(String currency, int top) {
-
+    public Map<String, Integer> getTempMap() {
+        return tempMap;
     }
 
     public static class Entry<K, V> {
-        private final K NAME;
-        private final V COUNT;
+        private final K name;
+        private final V count;
 
         public Entry(K k, V v) {
-            this.NAME = k;
-            this.COUNT = v;
+            this.name = k;
+            this.count = v;
         }
 
         public K getName() {
-            return this.NAME;
+            return this.name;
         }
 
         public V getValue() {
-            return COUNT;
+            return count;
         }
     }
 }

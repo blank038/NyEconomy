@@ -14,8 +14,6 @@ Enable: [ ]
 PayBlackList: [ ]
 # 刷新排行间隔, 单位: 秒, 0 为禁用
 refresh-delay: 600
-# 刷新间隔检测, 单位: 秒, 0 为禁用
-prev-refresh-delay: 660
 # 排行缓存数量
 cache-count: 100
 # 是否开启 Vault 经济桥
@@ -24,6 +22,8 @@ economy-bridge:
   singular: "Money"
   plural: "金币"
   currency: "金币"
+placeholder:
+  none: "无"
 #提示信息内容
 Message:
   Prefix: "&3多经济系统 §f"
@@ -59,6 +59,7 @@ Message:
   BuySuccess: "&a成功购买商品: &f%commodity%"
   PayCancelled: "&c该货币不允许转账！"
   Take: "&a成功扣除玩家 &f%player% &f%amount%%type%&a, 当前余额: &f%last%"
+  empty-data: "排行榜还未进行计算, 请稍等."
   top:
     header: "&a----========= &f%currency% &6排行榜 &a=========----"
     line: "&e%top%. &b%name% &f- &b%count%"

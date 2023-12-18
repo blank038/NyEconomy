@@ -14,6 +14,7 @@ import org.bukkit.Bukkit;
 
 import java.sql.*;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -171,7 +172,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         }, exists.get() ? "UPDATE ny_economy_option SET option_value=? WHERE option_key='refresh_time'"
                 : "INSERT INTO ny_economy_option (option_key,option_value) VALUES ('refresh_time',?)");
         // 创建集合
-        HashMap<String, AccountTopCache> cache = new HashMap<>(this.getTableCount("ny_economy"));
+        Map<String, AccountTopCache> cache = new HashMap<>(this.getTableCount("ny_economy"));
         this.DATA_SOURCE.connect((connection, statement) -> {
             ResultSet resultSet = null;
             try {

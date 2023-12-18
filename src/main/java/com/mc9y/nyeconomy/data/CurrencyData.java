@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * @author Blank038
@@ -16,16 +17,18 @@ import java.util.Map;
 public class CurrencyData {
     public static final Map<String, CurrencyData> CURRENCY_DATA = new HashMap<>();
 
-    private final File tarFile;
+    private final String currencyName;
     private final FileConfiguration configuration;
 
     public CurrencyData(String name) {
-        tarFile = new File(Main.getInstance().getDataFolder() + "/Currencies/", name + ".yml");
+        this.currencyName = name;
+        File tarFile = new File(Main.getInstance().getDataFolder() + "/Currencies/", name + ".yml");
         configuration = YamlConfiguration.loadConfiguration(tarFile);
     }
 
     public void save() {
         try {
+            File tarFile = new File(Main.getInstance().getDataFolder() + "/Currencies/", this.currencyName + ".yml");
             configuration.save(tarFile);
         } catch (IOException e) {
             e.printStackTrace();
@@ -33,11 +36,11 @@ public class CurrencyData {
     }
 
     public int getUserBalance(String name) {
-        if (configuration.contains(name)) {
-            return configuration.getInt(name);
-        } else {
-            return 0;
-        }
+        return this.configuration.getInt(name, 0);
+    }
+
+    public Set<String> getAllPlayers() {
+        return this.configuration.getKeys(false);
     }
 
     public void deposit(String name, int amount) {

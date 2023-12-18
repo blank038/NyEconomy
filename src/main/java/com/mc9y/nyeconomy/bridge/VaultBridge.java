@@ -19,15 +19,15 @@ import java.util.List;
 public class VaultBridge extends AbstractEconomy {
     private static VaultBridge vaultBridge;
 
-    private final String CURRENCY;
+    private final String currency;
 
     public VaultBridge() {
         vaultBridge = this;
-        this.CURRENCY = Main.getInstance().getConfig().getString("economy-bridge.currency");
+        this.currency = Main.getInstance().getConfig().getString("economy-bridge.currency");
     }
 
     public String getCurrencyName() {
-        return this.CURRENCY;
+        return this.currency;
     }
 
     @Override
@@ -87,17 +87,17 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public double getBalance(String s) {
-        return AbstractStorgeHandler.getHandler().balance(s, this.CURRENCY, 2);
+        return AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
     }
 
     @Override
     public double getBalance(OfflinePlayer s) {
-        return AbstractStorgeHandler.getHandler().balance(s.getName(), this.CURRENCY, 2);
+        return AbstractStorgeHandler.getHandler().balance(s.getName(), this.currency, 2);
     }
 
     @Override
     public double getBalance(String s, String s1) {
-        return AbstractStorgeHandler.getHandler().balance(s, this.CURRENCY, 2);
+        return AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
     }
 
     @Override
@@ -115,8 +115,8 @@ public class VaultBridge extends AbstractEconomy {
         if (v < 0.0) {
             return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
         }
-        boolean result = AbstractStorgeHandler.getHandler().withdraw(s, this.CURRENCY, (int) v);
-        int balance = AbstractStorgeHandler.getHandler().balance(s, this.CURRENCY, 2);
+        boolean result = AbstractStorgeHandler.getHandler().withdraw(s, this.currency, (int) v);
+        int balance = AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
         return new EconomyResponse(v, balance,
                 result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, "余额不足");
     }
@@ -141,8 +141,8 @@ public class VaultBridge extends AbstractEconomy {
         if (v < 0.0) {
             return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
         }
-        boolean result = AbstractStorgeHandler.getHandler().deposit(s, this.CURRENCY, (int) v);
-        int balance = AbstractStorgeHandler.getHandler().balance(s, this.CURRENCY, 2);
+        boolean result = AbstractStorgeHandler.getHandler().deposit(s, this.currency, (int) v);
+        int balance = AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
         return new EconomyResponse(v, balance,
                 result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, "出现异常");
     }

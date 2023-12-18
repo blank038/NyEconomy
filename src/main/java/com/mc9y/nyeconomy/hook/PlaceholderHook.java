@@ -2,17 +2,33 @@ package com.mc9y.nyeconomy.hook;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
+import com.mc9y.nyeconomy.data.AccountTopCache;
+import com.mc9y.nyeconomy.data.TopCache;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.entity.Player;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Blank038
  */
 public class PlaceholderHook extends PlaceholderExpansion {
-    private final Main INSTANCE;
+    private final Main plugin;
+    private final Map<String, PlaceholderConsumer> placeholderConsumerMap = new HashMap<>();
 
     public PlaceholderHook(Main main) {
-        this.INSTANCE = main;
+        this.plugin = main;
+        this.placeholderConsumerMap.put("top@name", (player, currency, params) -> {
+            int index = Integer.parseInt(params[2]);
+            AccountTopCache.Entry<String, Integer> entry = TopCache.getInstance().getTopData(currency).get(index);
+            return entry == null ? Main.getString("placeholder.none") : entry.getName();
+        });
+        this.placeholderConsumerMap.put("top@count", (player, currency, params) -> {
+            int index = Integer.parseInt(params[2]);
+            AccountTopCache.Entry<String, Integer> entry = TopCache.getInstance().getTopData(currency).get(index);
+            return entry == null ? Main.getString("placeholder.none") : String.valueOf(entry.getValue());
+        });
     }
 
     @Override
@@ -20,7 +36,12 @@ public class PlaceholderHook extends PlaceholderExpansion {
         if (player == null || !player.isOnline()) {
             return "";
         }
-        if ("mysql".equalsIgnoreCase(INSTANCE.getConfig().getString("data-option.type"))) {
+        String[] split = s.split("_");
+        String key = s.contains("_") ? split[1] : s;
+        if (this.placeholderConsumerMap.containsKey(key)) {
+            return this.placeholderConsumerMap.get(key).accept(player, split.length > 0 ? split[0] : key, split);
+        }
+        if ("mysql".equalsIgnoreCase(plugin.getConfig().getString("data-option.type"))) {
             if (AccountCache.CACHE_DATA.containsKey(player.getName())) {
                 return String.valueOf(AccountCache.CACHE_DATA.get(player.getName()).balance(s));
             }
@@ -43,6 +64,12 @@ public class PlaceholderHook extends PlaceholderExpansion {
 
     @Override
     public String getVersion() {
-        return INSTANCE.getDescription().getVersion();
+        return plugin.getDescription().getVersion();
+    }
+
+    @FunctionalInterface
+    public interface PlaceholderConsumer {
+
+        String accept(Player player, String currency, String[] params);
     }
 }

@@ -54,7 +54,7 @@ public class TopCache {
      *
      * @param cacheData 缓存数据
      */
-    public void submitCache(HashMap<String, AccountTopCache> cacheData) {
+    public void submitCache(Map<String, AccountTopCache> cacheData) {
         // 清空数据
         this.topData.clear();
         for (String currency : Main.getInstance().vaults) {
@@ -91,7 +91,6 @@ public class TopCache {
             if (i < count) {
                 result.put(i, new AccountTopCache.Entry<>(names[i], counts[i]));
             }
-            cacheData.get(names[i]).setRank(currency, i);
         }
         return result;
     }

@@ -143,14 +143,18 @@ public class NyeCommand implements CommandExecutor {
                 case 0:
                     // 给予
                     Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
-                    sender.sendMessage(Main.getString("Message.Give", true).replace("&", "§")
-                            .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount))
+                    sender.sendMessage(Main.getString("Message.Give", true)
+                            .replace("&", "§")
+                            .replace("%type%", args[2])
+                            .replace("%amount%", String.valueOf(amount))
                             .replace("%player%", args[1]));
                     if (args.length > 4 && "true".equalsIgnoreCase(args[4])) {
                         Player target = Bukkit.getPlayerExact(args[1]);
                         if (target != null && target.isOnline()) {
-                            target.sendMessage(Main.getString("Message.receive", true).replace("%type%", args[2])
-                                    .replace("%amount%", String.valueOf(amount)).replace("%sender%", sender.getName())
+                            target.sendMessage(Main.getString("Message.receive", true)
+                                    .replace("%type%", args[2])
+                                    .replace("%amount%", String.valueOf(amount))
+                                    .replace("%sender%", sender.getName())
                                     .replace("%player%", args[1]));
                         }
                     }
@@ -158,21 +162,27 @@ public class NyeCommand implements CommandExecutor {
                 case 1:
                     // 减少
                     Main.getNyEconomyAPI().withdraw(args[2], args[1], amount);
-                    sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Take").replace("&", "§")
-                            .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount))
-                            .replace("%player%", args[1]).replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], args[1]))));
+                    sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Take")
+                            .replace("&", "§")
+                            .replace("%type%", args[2])
+                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%player%", args[1])
+                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], args[1]))));
                     break;
                 case 2:
                     // 设置
                     Main.getNyEconomyAPI().set(args[2], args[1], amount);
-                    sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.set").replace("&", "§")
-                            .replace("%type%", args[2]).replace("%amount%", String.valueOf(amount)).replace("%player%", args[1]));
+                    sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.set")
+                            .replace("&", "§")
+                            .replace("%type%", args[2])
+                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%player%", args[1]));
                     break;
                 default:
                     break;
             }
         } else {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
+            sender.sendMessage(Main.getString("Message.NoHasPermission", true));
         }
     }
 
@@ -348,7 +358,7 @@ public class NyeCommand implements CommandExecutor {
 
     private void top(CommandSender sender, String[] args) {
         if (sender.hasPermission("nye.top")) {
-            if (checkCurrency(sender, args)) {
+            if (this.checkCurrency(sender, args)) {
                 return;
             }
             int page = 1;
