@@ -1,4 +1,4 @@
-package com.mc9y.nyeconomy.util;
+package com.mc9y.nyeconomy.message;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountTopCache;
@@ -6,17 +6,17 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Blank038
  * @since 2021-03-12
  */
-public class TopBuilder {
+public class TopMessage {
     private final List<String> messageList = new ArrayList<>();
 
-    public TopBuilder(HashMap<Integer, AccountTopCache.Entry<String, Integer>> top, int page) {
+    public TopMessage(Map<Integer, AccountTopCache.Entry<String, Integer>> top, int page) {
         if (top.isEmpty()) {
             return;
         }

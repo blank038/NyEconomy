@@ -7,13 +7,14 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Blank038
  * @since 2021/03/07
  */
 public class CurrencyData {
-    public static final HashMap<String, CurrencyData> CURRENCY_DATA = new HashMap<>();
+    public static final Map<String, CurrencyData> CURRENCY_DATA = new HashMap<>();
 
     private final File tarFile;
     private final FileConfiguration configuration;

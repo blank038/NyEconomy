@@ -12,9 +12,9 @@ import java.util.Map;
  * @since 2021-03-07
  */
 public class AccountCache {
-    public static final HashMap<String, AccountCache> CACHE_DATA = new HashMap<>();
+    public static final Map<String, AccountCache> CACHE_DATA = new HashMap<>();
 
-    private final HashMap<String, Integer> currencyMap = new HashMap<>();
+    private final Map<String, Integer> currencyMap = new HashMap<>();
 
     public AccountCache(JsonObject jsonObject) {
         this.update(jsonObject);
@@ -55,7 +55,6 @@ public class AccountCache {
     public void update(JsonObject object) {
         if (object != null && object.has("currencys")) {
             JsonArray array = object.getAsJsonArray("currencys");
-            // 计算数据
             for (int i = 0; i < array.size(); i++) {
                 JsonObject temp = array.get(i).getAsJsonObject();
                 if (temp == null || temp.isJsonNull() || temp.get("type").isJsonNull()) {

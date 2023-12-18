@@ -4,12 +4,13 @@ import org.bukkit.Bukkit;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Blank038
  */
 public class Commodity {
-    public static final HashMap<String, Commodity> COMMODITY_MAP = new HashMap<>();
+    public static final Map<String, Commodity> COMMODITY_MAP = new HashMap<>();
 
     private final String economyType;
     private final int amount;

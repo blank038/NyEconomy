@@ -12,7 +12,7 @@ import java.sql.SQLException;
  * @since 2021-03-11
  */
 public class CommonDataSourceHandler extends AbstractDataSourceHandlerImpl {
-    private final String SQL_URL, SQL_USER, SQL_PASSWORD;
+    private final String sqlUrl, sqlUser, sqlPassword;
 
     public CommonDataSourceHandler() {
         try {
@@ -21,15 +21,15 @@ public class CommonDataSourceHandler extends AbstractDataSourceHandlerImpl {
             e.printStackTrace();
         }
         // 初始化 MySQL 参数
-        this.SQL_URL = Main.getInstance().getConfig().getString("data-option.url");
-        this.SQL_USER = Main.getInstance().getConfig().getString("data-option.user");
-        this.SQL_PASSWORD = Main.getInstance().getConfig().getString("data-option.password");
+        this.sqlUrl = Main.getInstance().getConfig().getString("data-option.url");
+        this.sqlUser = Main.getInstance().getConfig().getString("data-option.user");
+        this.sqlPassword = Main.getInstance().getConfig().getString("data-option.password");
     }
 
     @Override
     public Connection getConnection() {
         try {
-            return DriverManager.getConnection(this.SQL_URL, this.SQL_USER, this.SQL_PASSWORD);
+            return DriverManager.getConnection(this.sqlUrl, this.sqlUser, this.sqlPassword);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }

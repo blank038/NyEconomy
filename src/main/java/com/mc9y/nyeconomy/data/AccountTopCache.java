@@ -5,13 +5,14 @@ import com.google.gson.JsonObject;
 import com.mc9y.nyeconomy.Main;
 
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Blank038
  * @since 2021-03-11
  */
 public class AccountTopCache {
-    private final HashMap<String, Integer> tempMap = new HashMap<>();
+    private final Map<String, Integer> tempMap = new HashMap<>();
 
     public AccountTopCache(JsonObject jsonObject) {
         if (jsonObject.has("currencys")) {

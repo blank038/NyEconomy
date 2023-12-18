@@ -7,7 +7,7 @@ import com.mc9y.nyeconomy.api.event.PlayerBuyCommodityEvent;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
-import com.mc9y.nyeconomy.util.TopBuilder;
+import com.mc9y.nyeconomy.message.TopMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -101,7 +101,7 @@ public class NyeCommand implements CommandExecutor {
     private void showInfo(CommandSender sender) {
         if (sender instanceof Player) {
             boolean mysql = MySqlStorgeHandler.SQL_STATUS;
-            if (instance.vaults.size() == 0) {
+            if (instance.vaults.isEmpty()) {
                 sender.sendMessage(instance.prefix + "§c无可查询数据.");
                 return;
             }
@@ -185,7 +185,7 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(instance.prefix + "§c该玩家不在线!");
                 return;
             }
-            if (instance.vaults.size() == 0) {
+            if (instance.vaults.isEmpty()) {
                 sender.sendMessage(instance.prefix + "§c无可查询数据.");
                 return;
             }
@@ -359,7 +359,7 @@ public class NyeCommand implements CommandExecutor {
                 }
             }
             page = Math.max(1, page);
-            new TopBuilder(TopCache.getInstance().getTopData(args[1]), page).send(args[1], sender);
+            new TopMessage(TopCache.getInstance().getTopData(args[1]), page).send(args[1], sender);
         }
     }
 

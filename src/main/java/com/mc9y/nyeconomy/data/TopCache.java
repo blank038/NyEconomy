@@ -15,7 +15,7 @@ import java.util.Map;
 public class TopCache {
     private static TopCache topCache;
 
-    private final HashMap<String, HashMap<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
+    private final Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
     private BukkitTask task;
     private boolean enableTop;
 
@@ -62,14 +62,14 @@ public class TopCache {
         }
     }
 
-    public HashMap<Integer, AccountTopCache.Entry<String, Integer>> getTopData(String currency) {
+    public Map<Integer, AccountTopCache.Entry<String, Integer>> getTopData(String currency) {
         return this.topData.getOrDefault(currency, new HashMap<>(0));
     }
 
-    private HashMap<Integer, AccountTopCache.Entry<String, Integer>> calc(String currency, HashMap<String, AccountTopCache> cacheData) {
+    private Map<Integer, AccountTopCache.Entry<String, Integer>> calc(String currency, Map<String, AccountTopCache> cacheData) {
         final int count = Main.getInstance().getConfig().getInt("cache-count");
-        HashMap<Integer, AccountTopCache.Entry<String, Integer>> result = new HashMap<>(count);
-        HashMap<String, Integer> tempData = new HashMap<>(cacheData.size());
+        Map<Integer, AccountTopCache.Entry<String, Integer>> result = new HashMap<>(count);
+        Map<String, Integer> tempData = new HashMap<>(cacheData.size());
         for (Map.Entry<String, AccountTopCache> entry : cacheData.entrySet()) {
             tempData.put(entry.getKey(), entry.getValue().getCurrencyCount(currency));
         }

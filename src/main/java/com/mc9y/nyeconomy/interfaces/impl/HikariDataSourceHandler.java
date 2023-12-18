@@ -13,7 +13,7 @@ import java.sql.SQLException;
  * @since 2021-03-11
  */
 public class HikariDataSourceHandler extends AbstractDataSourceHandlerImpl {
-    private final HikariDataSource DATA_SOURCE;
+    private final HikariDataSource dataSource;
 
     public HikariDataSourceHandler() {
         HikariConfig config = new HikariConfig();
@@ -26,13 +26,13 @@ public class HikariDataSourceHandler extends AbstractDataSourceHandlerImpl {
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
         config.addDataSourceProperty("autoReconnect", "true");
         config.addDataSourceProperty("useSSL", "false");
-        this.DATA_SOURCE = new HikariDataSource(config);
+        this.dataSource = new HikariDataSource(config);
     }
 
     @Override
     public Connection getConnection() {
         try {
-            return this.DATA_SOURCE.getConnection();
+            return this.dataSource.getConnection();
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
