@@ -2,8 +2,7 @@ package com.mc9y.nyeconomy.data;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
-import org.bukkit.Bukkit;
-import org.bukkit.scheduler.BukkitTask;
+import com.mc9y.nyeconomy.helper.SchedulerHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +15,7 @@ public class TopCache {
     private static TopCache topCache;
 
     private final Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
-    private BukkitTask task;
+    private Object task;
     private boolean enableTop;
 
     public static TopCache getInstance() {
@@ -37,13 +36,12 @@ public class TopCache {
 
     public void refreshTask() {
         if (task != null) {
-            task.cancel();
+            SchedulerHelper.cancelTask(task);
         }
         int delay = Main.getInstance().getConfig().getInt("refresh-delay");
         if (delay > 0) {
             this.setTopEnabled(true);
-            task = Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(),
-                    () -> AbstractStorgeHandler.getHandler().refreshTop(), 20L * 5, 20L * delay);
+            task = SchedulerHelper.runTaskTimerAsync(() -> AbstractStorgeHandler.getHandler().refreshTop(), 20L * 5, 20L * delay);
         } else {
             this.setTopEnabled(false);
         }

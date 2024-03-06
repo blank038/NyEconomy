@@ -2,6 +2,7 @@ package com.mc9y.nyeconomy;
 
 import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.bridge.VaultBridge;
+import com.mc9y.nyeconomy.cache.StateCache;
 import com.mc9y.nyeconomy.command.NyeCommand;
 import com.mc9y.nyeconomy.data.CurrencyData;
 import com.mc9y.nyeconomy.data.TopCache;
@@ -9,6 +10,7 @@ import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
 import com.mc9y.nyeconomy.handler.YamlStorgeHandler;
 import com.mc9y.nyeconomy.hook.PlaceholderHook;
+import com.mc9y.nyeconomy.helper.SchedulerHelper;
 import com.mc9y.nyeconomy.listener.PlayerListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -19,11 +21,14 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * @author Blank038
  */
 public class Main extends JavaPlugin {
+    private static final Pattern PATTERN = Pattern.compile("#[A-f0-9]{6}");
     private static NyEconomyAPI economyAPI;
     private static Main instance;
 
@@ -52,7 +57,7 @@ public class Main extends JavaPlugin {
         AbstractStorgeHandler.setHandler(useMySQL ? MySqlStorgeHandler.class : YamlStorgeHandler.class);
         // 开启存储线程
         int saveDelay = getConfig().getInt("auto-save");
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+        SchedulerHelper.runTaskTimerAsync(() -> {
             for (CurrencyData d : CurrencyData.CURRENCY_DATA.values()) {
                 d.save();
             }
@@ -76,7 +81,9 @@ public class Main extends JavaPlugin {
         if (AbstractStorgeHandler.getHandler() != null) {
             AbstractStorgeHandler.getHandler().save();
         }
-        VaultBridge.unregister();
+        if (StateCache.vaultState) {
+            VaultBridge.unregister();
+        }
     }
 
     @Override
@@ -91,7 +98,7 @@ public class Main extends JavaPlugin {
         getDataFolder().mkdir();
         saveDefaultConfig();
         reloadConfig();
-        prefix = getConfig().getString("Message.Prefix").replace("&", "§");
+        prefix = Main.getString("Message.Prefix");
         debug = getConfig().getBoolean("debug");
         // 输出 PlaceholderAPI 挂钩信息
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -100,9 +107,11 @@ public class Main extends JavaPlugin {
             this.log("§b[NyEconomy]§f  §a> §7未检测到 PlaceholderAPI §c✘");
         }
         // 输出 Vault 是否挂钩
-        VaultBridge.register();
-        VaultBridge.checkCurrencyFile();
-        if (VaultBridge.getVaultBridge() != null) {
+        if (Bukkit.getPluginManager().getPlugin("Vault") != null) {
+            VaultBridge.register();
+            VaultBridge.checkCurrencyFile();
+        }
+        if (StateCache.vaultState) {
             this.log("§b[NyEconomy]§f  §a> §e成功挂钩 Vault 经济桥 §a✔");
         } else {
             this.log("§b[NyEconomy]§f  §a> §7未检测到 Vault 经济桥 §c✘");
@@ -179,11 +188,21 @@ public class Main extends JavaPlugin {
         }
     }
 
+    public static String formatHexColor(String message) {
+        String copy = message;
+        Matcher matcher = PATTERN.matcher(copy);
+        while (matcher.find()) {
+            String color = message.substring(matcher.start(), matcher.end());
+            copy = copy.replace(color, String.valueOf(net.md_5.bungee.api.ChatColor.of(color)));
+        }
+        return net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', copy);
+    }
+
     public static String getString(String key, boolean... prefix) {
         String message = instance.getConfig().getString(key, "");
         if (prefix.length > 0 && prefix[0]) {
             message = instance.getConfig().getString("Message.Prefix") + message;
         }
-        return ChatColor.translateAlternateColorCodes('&', message);
+        return formatHexColor(message);
     }
 }

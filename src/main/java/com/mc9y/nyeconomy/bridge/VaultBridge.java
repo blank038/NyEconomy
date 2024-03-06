@@ -1,6 +1,7 @@
 package com.mc9y.nyeconomy.bridge;
 
 import com.mc9y.nyeconomy.Main;
+import com.mc9y.nyeconomy.cache.StateCache;
 import com.mc9y.nyeconomy.data.CurrencyData;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import net.milkbowl.vault.economy.AbstractEconomy;
@@ -235,6 +236,7 @@ public class VaultBridge extends AbstractEconomy {
     public static void register() {
         if (vaultBridge == null && Main.getInstance().getConfig().getBoolean("economy-bridge.enable")) {
             Bukkit.getServicesManager().register(Economy.class, new VaultBridge(), Main.getInstance(), ServicePriority.Highest);
+            StateCache.vaultState = true;
         }
     }
 

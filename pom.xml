@@ -6,7 +6,7 @@
 
     <groupId>com.mc9y.nyeconomy</groupId>
     <artifactId>NyEconomy</artifactId>
-    <version>1.6.0-SNAPSHOT</version>
+    <version>1.7.0-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -24,6 +24,12 @@
     </repositories>
     <dependencies>
         <dependency>
+            <groupId>dev.folia</groupId>
+            <artifactId>folia-api</artifactId>
+            <version>1.20.1-R0.1-SNAPSHOT</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
             <version>3.4.5</version>
@@ -33,21 +39,18 @@
             <groupId>com.github.MilkBowl</groupId>
             <artifactId>VaultAPI</artifactId>
             <version>1.7</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bukkit</groupId>
+                    <artifactId>bukkit</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>me.clip</groupId>
+            <artifactId>placeholderapi</artifactId>
+            <version>2.10.4</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>PlaceholderAPI</groupId>
-            <artifactId>PlaceholderAPI</artifactId>
-            <version>2.9.2</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/libs/PlaceholderAPI-2.10.4.jar</systemPath>
-        </dependency>
-        <dependency>
-            <groupId>spigot</groupId>
-            <artifactId>spigot</artifactId>
-            <version>1.12-R0.1-SNAPSHOT-b1376</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/libs/spigot-1.12-R0.1-SNAPSHOT-b1376.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.aystudio.core</groupId>

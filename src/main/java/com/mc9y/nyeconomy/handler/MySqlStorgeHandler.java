@@ -7,10 +7,10 @@ import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.AccountTopCache;
 import com.mc9y.nyeconomy.data.TopCache;
+import com.mc9y.nyeconomy.helper.SchedulerHelper;
 import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandlerImpl;
 import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandler;
 import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandler;
-import org.bukkit.Bukkit;
 
 import java.sql.*;
 import java.util.HashMap;
@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
 
 /**
  * @author Blank038
@@ -39,12 +40,12 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         this.DATA_SOURCE = Main.getInstance().hasHikariCP() ? new HikariDataSourceHandler() : new CommonDataSourceHandler();
         this.createTable();
         // 建立线程定时请求, 避免超时
-        Bukkit.getScheduler().runTaskTimerAsynchronously(Main.getInstance(), () -> this.DATA_SOURCE.connect((connection, statement) -> {
+        SchedulerHelper.runTaskTimerAsync(() -> this.DATA_SOURCE.connect((connection, statement) -> {
             ResultSet resultSet = null;
             try {
                 resultSet = statement.executeQuery();
             } catch (SQLException throwables) {
-                throwables.printStackTrace();
+                Main.getInstance().getLogger().log(Level.WARNING, throwables, () -> "定时查询线程出现异常");
             } finally {
                 this.DATA_SOURCE.close(statement, resultSet);
             }
