@@ -3,7 +3,7 @@ package com.mc9y.nyeconomy.listener;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
-import org.bukkit.Bukkit;
+import com.mc9y.nyeconomy.helper.SchedulerHelper;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,7 +18,7 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         if ("mysql".equalsIgnoreCase(Main.getInstance().getConfig().getString("data-option.type"))) {
-            Bukkit.getScheduler().runTaskAsynchronously(Main.getInstance(), () -> {
+            SchedulerHelper.runTaskAsync(() -> {
                 Player player = event.getPlayer();
                 if (player != null && player.isOnline()) {
                     String name = event.getPlayer().getName();

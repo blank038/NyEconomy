@@ -3,7 +3,7 @@ data-option:
   # 玩家数据存储方式, 可选: YAML, MySQL
   type: YAML
   # MySQL的URL，例如jdbc:mysql://127.0.0.1/minecraft 格式：jdbc:mysql://MySQL地址/数据库名
-  url: jdbc:mysql://localhost/minecraft?autoReconnect=true&autoReconnectForPools=true
+  url: jdbc:mysql://localhost/minecraft?autoReconnect=true&autoReconnectForPools=true&useUnicode=true&characterEncoding=utf-8
   # 数据库用户名
   user: "root1"
   # 数据库密码
