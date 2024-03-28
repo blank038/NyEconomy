@@ -6,7 +6,7 @@
 
     <groupId>com.mc9y.nyeconomy</groupId>
     <artifactId>NyEconomy</artifactId>
-    <version>1.7.0-SNAPSHOT</version>
+    <version>1.7.1-SNAPSHOT</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
