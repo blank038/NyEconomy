@@ -68,6 +68,6 @@ Message:
 #命令使用冷却时间, 单位：秒
 CommandDelay: 1
 # 存储间隔, 单位: 秒
-auth-save: 300
+auto-save: 300
 # 是否开启 debug
 debug: false
