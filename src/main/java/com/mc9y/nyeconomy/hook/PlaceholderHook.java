@@ -67,6 +67,11 @@ public class PlaceholderHook extends PlaceholderExpansion {
         return plugin.getDescription().getVersion();
     }
 
+    @Override
+    public boolean persist() {
+        return true;
+    }
+
     @FunctionalInterface
     public interface PlaceholderConsumer {
 

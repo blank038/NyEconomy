@@ -95,7 +95,6 @@ public class Main extends JavaPlugin {
     public void loadConfig() {
         this.log("§b[NyEconomy]§f ================================");
         this.log("§b[NyEconomy]§f  §a> §b正在加载九域多经济系统...");
-        getDataFolder().mkdir();
         saveDefaultConfig();
         reloadConfig();
         prefix = Main.getString("Message.Prefix");
@@ -135,6 +134,9 @@ public class Main extends JavaPlugin {
         // 载入货币列表
         File currencies = new File(getDataFolder(), "Currencies");
         currencies.mkdir();
+        // 存储当前货币
+        CurrencyData.CURRENCY_DATA.values().forEach(CurrencyData::save);
+        // 加载货币项
         vaults.clear();
         CurrencyData.CURRENCY_DATA.clear();
         this.log("§b[NyEconomy]§f  §a> §e开始加载经济货币项");
@@ -149,7 +151,7 @@ public class Main extends JavaPlugin {
             }
         }
         this.log("§b[NyEconomy]§f  §a> §e经济加载完成, 共加载 §f%amount% §e项"
-                .replace("%amount%", vaults.size() + ""));
+                .replace("%amount%", String.valueOf(vaults.size())));
     }
 
     private void loadCommodity() {
