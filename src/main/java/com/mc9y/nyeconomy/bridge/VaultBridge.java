@@ -103,12 +103,12 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public boolean has(String s, double v) {
-        return this.hasAccount(s);
+        return this.getBalance(s) >= v;
     }
 
     @Override
     public boolean has(String s, String s1, double v) {
-        return this.hasAccount(s);
+        return this.has(s, v);
     }
 
     @Override
