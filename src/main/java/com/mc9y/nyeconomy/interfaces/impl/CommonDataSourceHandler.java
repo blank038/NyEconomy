@@ -20,10 +20,9 @@ public class CommonDataSourceHandler extends AbstractDataSourceHandlerImpl {
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
-        // 初始化 MySQL 参数
-        this.sqlUrl = Main.getInstance().getConfig().getString("data-option.url");
-        this.sqlUser = Main.getInstance().getConfig().getString("data-option.user");
-        this.sqlPassword = Main.getInstance().getConfig().getString("data-option.password");
+        this.sqlUrl = Main.getInstance().getConfig().getString("data-option.mysql.url");
+        this.sqlUser = Main.getInstance().getConfig().getString("data-option.mysql.user");
+        this.sqlPassword = Main.getInstance().getConfig().getString("data-option.mysql.password");
     }
 
     @Override

@@ -18,9 +18,9 @@ public class HikariDataSourceHandler extends AbstractDataSourceHandlerImpl {
     public HikariDataSourceHandler() {
         HikariConfig config = new HikariConfig();
         config.setPoolName(Main.getInstance().getDescription().getName() + "-Pool");
-        config.setJdbcUrl(Main.getInstance().getConfig().getString("data-option.url"));
-        config.setUsername(Main.getInstance().getConfig().getString("data-option.user"));
-        config.setPassword(Main.getInstance().getConfig().getString("data-option.password"));
+        config.setJdbcUrl(Main.getInstance().getConfig().getString("data-option.mysql.url"));
+        config.setUsername(Main.getInstance().getConfig().getString("data-option.mysql.user"));
+        config.setPassword(Main.getInstance().getConfig().getString("data-option.mysql.password"));
         config.addDataSourceProperty("cachePrepStmts", "true");
         config.addDataSourceProperty("prepStmtCacheSize", "250");
         config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");

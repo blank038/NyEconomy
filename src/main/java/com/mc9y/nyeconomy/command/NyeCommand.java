@@ -1,5 +1,6 @@
 package com.mc9y.nyeconomy.command;
 
+import com.aystudio.core.bukkit.AyCore;
 import com.mc9y.nyeconomy.Commodity;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.api.NyEconomyAPI;
@@ -8,6 +9,8 @@ import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
 import com.mc9y.nyeconomy.message.TopMessage;
+import com.mc9y.nyeconomy.migration.MigrationHandler;
+import com.mc9y.nyeconomy.service.UUIDService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,12 +19,12 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.List;
-
-/**
- * @author Blank038
- */
+import java.util.UUID;
+import java.util.logging.Level;
 public class NyeCommand implements CommandExecutor {
     private final Main instance;
     private final List<String> cooldown = new ArrayList<>();
@@ -38,7 +41,7 @@ public class NyeCommand implements CommandExecutor {
         }
         if (!sender.hasPermission("com.mc9y.nyeconomy.bypass")) {
             cooldown.add(sender.getName());
-            Bukkit.getScheduler().runTaskLaterAsynchronously(instance, () -> cooldown.remove(sender.getName()), 20L * instance.getConfig().getInt("CommandDelay"));
+            AyCore.getPlatformApi().runTaskLaterAsynchronously(instance, () -> cooldown.remove(sender.getName()), 20L * instance.getConfig().getInt("CommandDelay"));
         }
         if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
             for (String text : instance.getConfig().getStringList("Message.help." + (sender.hasPermission("nye.admin") ? "admin" : "default"))) {
@@ -87,6 +90,12 @@ public class NyeCommand implements CommandExecutor {
                 case "top":
                     this.top(sender, args);
                     break;
+                case "migrate":
+                    this.migrateData(sender, args);
+                    break;
+                case "migrate-uuid":
+                    this.migrateUUID(sender);
+                    break;
                 default:
                     sender.sendMessage(instance.prefix + "§c命令参数不存在, 输入 §f/" + label + " help §c查看命令帮助！");
                     break;
@@ -100,14 +109,16 @@ public class NyeCommand implements CommandExecutor {
      */
     private void showInfo(CommandSender sender) {
         if (sender instanceof Player) {
+            Player player = (Player) sender;
+            UUID uuid = player.getUniqueId();
             boolean mysql = MySqlStorgeHandler.SQL_STATUS;
             if (instance.vaults.isEmpty()) {
                 sender.sendMessage(instance.prefix + "§c无可查询数据.");
                 return;
             }
-            if (mysql && AccountCache.CACHE_DATA.containsKey(sender.getName())) {
+            if (mysql && AccountCache.CACHE_DATA.containsKey(uuid)) {
                 sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
-                AccountCache cache = AccountCache.CACHE_DATA.get(sender.getName());
+                AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
                 for (String v : instance.vaults) {
                     sender.sendMessage(" §a> §f" + v + ": §7" + cache.balance(v));
                 }
@@ -132,6 +143,8 @@ public class NyeCommand implements CommandExecutor {
             if (checkArgs(sender, args)) {
                 return;
             }
+            UUID playerUUID = UUIDService.getInstance().getPlayerUUID(args[1]);
+            
             int amount;
             try {
                 amount = Integer.parseInt(args[3]);
@@ -141,8 +154,7 @@ public class NyeCommand implements CommandExecutor {
             }
             switch (type) {
                 case 0:
-                    // 给予
-                    Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
+                    Main.getNyEconomyAPI().deposit(args[2], playerUUID, amount);
                     sender.sendMessage(Main.getString("Message.Give", true)
                             .replace("&", "§")
                             .replace("%type%", args[2])
@@ -160,18 +172,16 @@ public class NyeCommand implements CommandExecutor {
                     }
                     break;
                 case 1:
-                    // 减少
-                    Main.getNyEconomyAPI().withdraw(args[2], args[1], amount);
+                    Main.getNyEconomyAPI().withdraw(args[2], playerUUID, amount);
                     sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Take")
                             .replace("&", "§")
                             .replace("%type%", args[2])
                             .replace("%amount%", String.valueOf(amount))
                             .replace("%player%", args[1])
-                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], args[1]))));
+                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], playerUUID))));
                     break;
                 case 2:
-                    // 设置
-                    Main.getNyEconomyAPI().set(args[2], args[1], amount);
+                    Main.getNyEconomyAPI().set(args[2], playerUUID, amount);
                     sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.set")
                             .replace("&", "§")
                             .replace("%type%", args[2])
@@ -323,7 +333,8 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailCurrency").replace("&", "§"));
                 return;
             }
-            Main.getNyEconomyAPI().reset(args[2], args[1]);
+            UUID playerUUID = UUIDService.getInstance().getPlayerUUID(args[1]);
+            Main.getNyEconomyAPI().reset(args[2], playerUUID);
             sender.sendMessage(instance.prefix + "§e成功重置玩家货币§f(%type%)§e的数据".replace("%type%", args[2]));
         } else {
             sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
@@ -410,5 +421,101 @@ public class NyeCommand implements CommandExecutor {
             return true;
         }
         return false;
+    }
+
+    /**
+     * 数据迁移命令
+     */
+    private void migrateData(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nye.admin")) {
+            sender.sendMessage(Main.getString("Message.NoHasPermission", true));
+            return;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage("§c用法: /nye migrate <from> <to>");
+            sender.sendMessage("§c示例: /nye migrate yaml sqlite");
+            sender.sendMessage("§c支持迁移:");
+            sender.sendMessage("§c  源: yaml, mysql_old");
+            sender.sendMessage("§c  目标: sqlite, mysql");
+            return;
+        }
+
+        String from = args[1];
+        String to = args[2];
+
+        sender.sendMessage("§e======== 开始数据迁移 ========");
+        sender.sendMessage("§e源: " + from + " -> 目标: " + to);
+        sender.sendMessage("§e请稍等,迁移过程中请勿操作服务器...");
+
+        AyCore.getPlatformApi().runTaskAsynchronously(instance, () -> {
+            MigrationHandler handler = new MigrationHandler(Main.getInstance());
+            MigrationHandler.MigrationResult result = handler.migrate(from, to);
+
+            AyCore.getPlatformApi().runTask(instance, () -> {
+                if (result.success) {
+                    sender.sendMessage("§a======== 迁移完成 ========");
+                    sender.sendMessage("§a" + result.message);
+                    sender.sendMessage("§a总记录: " + result.totalRecords);
+                    sender.sendMessage("§a成功: " + result.successCount + ", 失败: " + result.failCount);
+                    sender.sendMessage("§e建议重启服务器以应用更改！");
+                } else {
+                    sender.sendMessage("§c======== 迁移失败 ========");
+                    sender.sendMessage("§c失败原因: " + result.message);
+                    sender.sendMessage("§c请检查配置文件和控制台日志");
+                }
+            });
+        });
+    }
+
+    private void migrateUUID(CommandSender sender) {
+        if (!sender.hasPermission("nye.admin")) {
+            sender.sendMessage(Main.getString("Message.NoHasPermission", true));
+            return;
+        }
+        
+        sender.sendMessage("§e开始 UUID 迁移...");
+        
+        AyCore.getPlatformApi().runTaskAsynchronously(instance, () -> {
+            try {
+                String dbType = Main.getInstance().getConfig().getString("data-option.type", "sqlite");
+                Connection connection = null;
+                
+                if ("mysql".equalsIgnoreCase(dbType)) {
+                    AyCore.getPlatformApi().runTask(instance, () -> sender.sendMessage("§cMySQL 模式暂不支持自动迁移,请手动操作"));
+                    return;
+                }
+                
+                if ("sqlite".equalsIgnoreCase(dbType)) {
+                    Class.forName("org.sqlite.JDBC");
+                    String dbPath = new java.io.File(Main.getInstance().getDataFolder(), "data/economy.db").getAbsolutePath();
+                    connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+                }
+                
+                if (connection == null) {
+                    AyCore.getPlatformApi().runTask(instance, () -> sender.sendMessage("§c无法获取数据库连接"));
+                    return;
+                }
+                
+                com.mc9y.nyeconomy.migration.UUIDMigrationHandler handler = new com.mc9y.nyeconomy.migration.UUIDMigrationHandler();
+                com.mc9y.nyeconomy.migration.UUIDMigrationHandler.MigrationResult result = handler.migrateToUUID(connection);
+                
+                connection.close();
+                
+                AyCore.getPlatformApi().runTask(instance, () -> {
+                    if (result.success) {
+                        sender.sendMessage("§a迁移成功!");
+                        sender.sendMessage("§a总玩家数: " + result.totalPlayers);
+                        sender.sendMessage("§a成功: " + result.successCount + ", 失败: " + result.failCount);
+                        sender.sendMessage("§e请重启服务器以应用更改!");
+                    } else {
+                        sender.sendMessage("§c迁移失败: " + result.message);
+                    }
+                });
+            } catch (Exception e) {
+                Main.getInstance().getLogger().log(Level.SEVERE, "UUID 迁移失败", e);
+                AyCore.getPlatformApi().runTask(instance, () -> sender.sendMessage("§c迁移失败: " + e.getMessage()));
+            }
+        });
     }
 }

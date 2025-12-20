@@ -2,8 +2,8 @@ package com.mc9y.nyeconomy.bridge;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.cache.StateCache;
-import com.mc9y.nyeconomy.data.CurrencyData;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
+import com.mc9y.nyeconomy.service.UUIDService;
 import net.milkbowl.vault.economy.AbstractEconomy;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
@@ -13,10 +13,7 @@ import org.bukkit.plugin.ServicePriority;
 
 import java.util.ArrayList;
 import java.util.List;
-
-/**
- * @author Blank038
- */
+import java.util.UUID;
 public class VaultBridge extends AbstractEconomy {
     private static VaultBridge vaultBridge;
 
@@ -68,12 +65,13 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public boolean hasAccount(String s) {
-        return AbstractStorgeHandler.getHandler().isExists(s);
+        UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
+        return AbstractStorgeHandler.getHandler().isExists(uuid);
     }
 
     @Override
     public boolean hasAccount(OfflinePlayer s) {
-        return AbstractStorgeHandler.getHandler().isExists(s.getName());
+        return AbstractStorgeHandler.getHandler().isExists(s.getUniqueId());
     }
 
     @Override
@@ -88,17 +86,19 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public double getBalance(String s) {
-        return AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
+        UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
+        return AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
     }
 
     @Override
     public double getBalance(OfflinePlayer s) {
-        return AbstractStorgeHandler.getHandler().balance(s.getName(), this.currency, 2);
+        return AbstractStorgeHandler.getHandler().balance(s.getUniqueId(), this.currency, 2);
     }
 
     @Override
     public double getBalance(String s, String s1) {
-        return AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
+        UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
+        return AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
     }
 
     @Override
@@ -116,15 +116,23 @@ public class VaultBridge extends AbstractEconomy {
         if (v < 0.0) {
             return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
         }
-        boolean result = AbstractStorgeHandler.getHandler().withdraw(s, this.currency, (int) v);
-        int balance = AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
+        UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
+        boolean result = AbstractStorgeHandler.getHandler().withdraw(uuid, this.currency, (int) v);
+        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
         return new EconomyResponse(v, balance,
                 result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, "余额不足");
     }
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount) {
-        return this.withdrawPlayer(player.getName(), amount);
+        if (amount < 0.0) {
+            return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
+        }
+        UUID uuid = player.getUniqueId();
+        boolean result = AbstractStorgeHandler.getHandler().withdraw(uuid, this.currency, (int) amount);
+        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
+        return new EconomyResponse(amount, balance,
+                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, "余额不足");
     }
 
     @Override
@@ -134,7 +142,7 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer player, String worldName, double amount) {
-        return this.withdrawPlayer(player.getName(), amount);
+        return this.withdrawPlayer(player, amount);
     }
 
     @Override
@@ -142,15 +150,23 @@ public class VaultBridge extends AbstractEconomy {
         if (v < 0.0) {
             return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
         }
-        boolean result = AbstractStorgeHandler.getHandler().deposit(s, this.currency, (int) v);
-        int balance = AbstractStorgeHandler.getHandler().balance(s, this.currency, 2);
+        UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
+        boolean result = AbstractStorgeHandler.getHandler().deposit(uuid, this.currency, (int) v);
+        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
         return new EconomyResponse(v, balance,
                 result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, "出现异常");
     }
 
     @Override
     public EconomyResponse depositPlayer(OfflinePlayer player, double amount) {
-        return this.depositPlayer(player.getName(), amount);
+        if (amount < 0.0) {
+            return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
+        }
+        UUID uuid = player.getUniqueId();
+        boolean result = AbstractStorgeHandler.getHandler().deposit(uuid, this.currency, (int) amount);
+        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
+        return new EconomyResponse(amount, balance,
+                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE, "出现异常");
     }
 
     @Override
@@ -160,7 +176,7 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public EconomyResponse depositPlayer(OfflinePlayer player, String worldName, double amount) {
-        return this.depositPlayer(player.getName(), amount);
+        return this.depositPlayer(player, amount);
     }
 
     @Override
@@ -253,7 +269,9 @@ public class VaultBridge extends AbstractEconomy {
     public static void checkCurrencyFile() {
         if (Main.getInstance().getConfig().getBoolean("economy-bridge.enable")) {
             String currency = Main.getInstance().getConfig().getString("economy-bridge.currency");
-            CurrencyData.CURRENCY_DATA.putIfAbsent(currency, new CurrencyData("60CFC2D63B8F0E9D"));
+            if (!Main.getInstance().vaults.contains(currency)) {
+                Main.getInstance().vaults.add(currency);
+            }
         }
     }
 }

@@ -1,13 +1,19 @@
 # 存储设定
 data-option:
-  # 玩家数据存储方式, 可选: YAML, MySQL
-  type: YAML
-  # MySQL的URL，例如jdbc:mysql://127.0.0.1/minecraft 格式：jdbc:mysql://MySQL地址/数据库名
-  url: jdbc:mysql://localhost/minecraft?autoReconnect=true&autoReconnectForPools=true&useUnicode=true&characterEncoding=utf-8
-  # 数据库用户名
-  user: "root1"
-  # 数据库密码
-  password: "root1"
+  # 玩家数据存储方式, 可选: sqlite (默认), mysql
+  type: sqlite
+  # SQLite 配置
+  sqlite:
+    # 数据库文件路径(相对于插件 data 目录)
+    file: "data/economy.db"
+  # MySQL 配置
+  mysql:
+    # MySQL的URL，例如jdbc:mysql://127.0.0.1/minecraft 格式：jdbc:mysql://MySQL地址/数据库名
+    url: jdbc:mysql://localhost/minecraft?autoReconnect=true&autoReconnectForPools=true&useUnicode=true&characterEncoding=utf-8
+    # 数据库用户名
+    user: "root"
+    # 数据库密码
+    password: "password"
 #开启哪些经济类型
 Enable: [ ]
 #禁止哪些货币可以转账
@@ -46,6 +52,7 @@ Message:
       - "&8- &b/%c take <玩家> <货币> <数量> &f扣除玩家货币"
       - "&8- &b/%c reset <玩家> <货币> &f清空玩家指定货币"
       - "&8- &b/%c delete <货币> &f删除某个货币"
+      - "&8- &b/%c migrate <from> <to> &f数据迁移工具"
       - "&8- &b/%c reload &f重载插件配置文件"
   FailCurrency: "&c没有该货币类型！"
   Delay: "&c命令冷却中, 请等待1秒！"
@@ -67,7 +74,5 @@ Message:
   receive: "收到来自 &a%sender% &f给予的 &a%amount%%type%"
 #命令使用冷却时间, 单位：秒
 CommandDelay: 1
-# 存储间隔, 单位: 秒
-auto-save: 300
 # 是否开启 debug
 debug: false

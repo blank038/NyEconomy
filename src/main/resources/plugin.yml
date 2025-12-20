@@ -7,6 +7,7 @@ softdepend:
   - Vault
 api-version: 1.13
 version: ${project.version}
+folia-supported: true
 commands:
   nyeconomy:
     description: Command for NyEconomy
@@ -15,4 +16,3 @@ commands:
       - neco
       - nyeco
       - nye
-folia-supported: true

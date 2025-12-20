@@ -1,16 +1,15 @@
 package com.mc9y.nyeconomy;
 
+import com.aystudio.core.bukkit.util.common.TextUtil;
 import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.bridge.VaultBridge;
 import com.mc9y.nyeconomy.cache.StateCache;
 import com.mc9y.nyeconomy.command.NyeCommand;
-import com.mc9y.nyeconomy.data.CurrencyData;
 import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
-import com.mc9y.nyeconomy.handler.YamlStorgeHandler;
+import com.mc9y.nyeconomy.handler.SqliteStorageHandler;
 import com.mc9y.nyeconomy.hook.PlaceholderHook;
-import com.mc9y.nyeconomy.helper.SchedulerHelper;
 import com.mc9y.nyeconomy.listener.PlayerListener;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -21,7 +20,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -51,29 +49,22 @@ public class Main extends JavaPlugin {
     @Override
     public void onEnable() {
         economyAPI = new NyEconomyAPI();
-        // 检测数据类型
-        boolean useMySQL = "mysql".equalsIgnoreCase(this.getConfig().getString("data-option.type"));
-        // 设置数据管理器
-        AbstractStorgeHandler.setHandler(useMySQL ? MySqlStorgeHandler.class : YamlStorgeHandler.class);
-        // 开启存储线程
-        int saveDelay = getConfig().getInt("auto-save");
-        SchedulerHelper.runTaskTimerAsync(() -> {
-            for (CurrencyData d : CurrencyData.CURRENCY_DATA.values()) {
-                d.save();
-            }
-        }, 20L * (saveDelay > 0 ? saveDelay : 300), 20L * (saveDelay > 0 ? saveDelay : 300));
+        logStatus = true;
+        this.loadConfig();
+        
+        String storageType = this.getConfig().getString("data-option.type", "sqlite").toLowerCase();
+        if ("mysql".equals(storageType)) {
+            AbstractStorgeHandler.setHandler(MySqlStorgeHandler.class);
+        } else {
+            AbstractStorgeHandler.setHandler(SqliteStorageHandler.class);
+        }
+        
         Bukkit.getPluginManager().registerEvents(new PlayerListener(), this);
         super.getCommand("nye").setExecutor(new NyeCommand(this));
-        // 挂钩 PlaceholderAPI
         if (Bukkit.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new PlaceholderHook(this).register();
         }
-        // 注册排行榜
         new TopCache();
-        // 设置状态
-        logStatus = true;
-        // 载入配置
-        this.loadConfig();
     }
 
     @Override
@@ -131,20 +122,14 @@ public class Main extends JavaPlugin {
     }
 
     private void loadCurrencies() {
-        // 载入货币列表
         File currencies = new File(getDataFolder(), "Currencies");
         currencies.mkdir();
-        // 存储当前货币
-        CurrencyData.CURRENCY_DATA.values().forEach(CurrencyData::save);
-        // 加载货币项
         vaults.clear();
-        CurrencyData.CURRENCY_DATA.clear();
         this.log("§b[NyEconomy]§f  §a> §e开始加载经济货币项");
         for (String i : getConfig().getStringList("Enable")) {
             File cf = new File(getDataFolder() + "/Currencies/", i + ".yml");
             if (cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"))) {
                 vaults.add(i);
-                CurrencyData.CURRENCY_DATA.put(i, new CurrencyData(i));
                 this.log("§b[NyEconomy]§f  §a -> §2成功加载货币项: §f" + i);
             } else {
                 this.log("§b[NyEconomy]§f  §a -> §c货币项 §f" + i + " §c不存在");
@@ -190,21 +175,11 @@ public class Main extends JavaPlugin {
         }
     }
 
-    public static String formatHexColor(String message) {
-        String copy = message;
-        Matcher matcher = PATTERN.matcher(copy);
-        while (matcher.find()) {
-            String color = message.substring(matcher.start(), matcher.end());
-            copy = copy.replace(color, String.valueOf(net.md_5.bungee.api.ChatColor.of(color)));
-        }
-        return net.md_5.bungee.api.ChatColor.translateAlternateColorCodes('&', copy);
-    }
-
     public static String getString(String key, boolean... prefix) {
         String message = instance.getConfig().getString(key, "");
         if (prefix.length > 0 && prefix[0]) {
             message = instance.getConfig().getString("Message.Prefix") + message;
         }
-        return formatHexColor(message);
+        return TextUtil.formatHexColor(message);
     }
 }
