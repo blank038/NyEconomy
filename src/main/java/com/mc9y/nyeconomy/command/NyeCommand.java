@@ -3,11 +3,8 @@ package com.mc9y.nyeconomy.command;
 import com.aystudio.core.bukkit.AyCore;
 import com.mc9y.nyeconomy.Commodity;
 import com.mc9y.nyeconomy.Main;
-import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.api.event.PlayerBuyCommodityEvent;
-import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.TopCache;
-import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
 import com.mc9y.nyeconomy.message.TopMessage;
 import com.mc9y.nyeconomy.migration.MigrationHandler;
 import com.mc9y.nyeconomy.service.UUIDService;
@@ -110,25 +107,13 @@ public class NyeCommand implements CommandExecutor {
     private void showInfo(CommandSender sender) {
         if (sender instanceof Player) {
             Player player = (Player) sender;
-            UUID uuid = player.getUniqueId();
-            boolean mysql = MySqlStorgeHandler.SQL_STATUS;
             if (instance.vaults.isEmpty()) {
                 sender.sendMessage(instance.prefix + "§c无可查询数据.");
                 return;
             }
-            if (mysql && AccountCache.CACHE_DATA.containsKey(uuid)) {
-                sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
-                AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
-                for (String v : instance.vaults) {
-                    sender.sendMessage(" §a> §f" + v + ": §7" + cache.balance(v));
-                }
-            } else if (!mysql && !"mysql".equalsIgnoreCase(instance.getConfig().getString("data-option.type"))) {
-                sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
-                for (String v : instance.vaults) {
-                    sender.sendMessage(" §a> §f" + v + ": §7" + NyEconomyAPI.getInstance().getBalance(v, sender.getName()));
-                }
-            } else {
-                sender.sendMessage(instance.prefix + "§c无可查询数据.");
+            sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
+            for (String v : instance.vaults) {
+                sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, player.getName()));
             }
         }
     }
