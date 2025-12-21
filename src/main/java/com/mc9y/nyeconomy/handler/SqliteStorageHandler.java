@@ -353,6 +353,59 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
         }
     }
 
+    @Override
+    public int depositAll(String type, int amount) {
+        if (amount < 0) {
+            return 0;
+        }
+
+        type = Main.getNyEconomyAPI().checkVaultType(type);
+        long now = System.currentTimeMillis();
+        
+        try (PreparedStatement ps = connection.prepareStatement(
+                "UPDATE nyeconomy_balances SET balance = balance + ?, last_updated = ? WHERE currency_type = ?")) {
+            ps.setInt(1, amount);
+            ps.setLong(2, now);
+            ps.setString(3, type);
+            
+            int affectedRows = ps.executeUpdate();
+            
+            String finalType = type;
+            AccountCache.CACHE_DATA.forEach((uuid, cache) -> {
+                cache.addBalance(finalType, amount);
+            });
+            
+            return affectedRows;
+        } catch (SQLException e) {
+            Main.getInstance().getLogger().log(Level.WARNING, "批量给予货币失败", e);
+            return 0;
+        }
+    }
+
+    @Override
+    public int resetAll(String type) {
+        type = Main.getNyEconomyAPI().checkVaultType(type);
+        long now = System.currentTimeMillis();
+        
+        try (PreparedStatement ps = connection.prepareStatement(
+                "UPDATE nyeconomy_balances SET balance = 0, last_updated = ? WHERE currency_type = ?")) {
+            ps.setLong(1, now);
+            ps.setString(2, type);
+            
+            int affectedRows = ps.executeUpdate();
+            
+            String finalType = type;
+            AccountCache.CACHE_DATA.forEach((uuid, cache) -> {
+                cache.setBalance(finalType, 0);
+            });
+            
+            return affectedRows;
+        } catch (SQLException e) {
+            Main.getInstance().getLogger().log(Level.WARNING, "批量重置货币失败", e);
+            return 0;
+        }
+    }
+
     public void close() {
         try {
             if (connection != null && !connection.isClosed()) {

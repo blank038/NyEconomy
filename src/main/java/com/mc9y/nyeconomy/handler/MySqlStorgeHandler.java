@@ -443,4 +443,61 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 "ON DUPLICATE KEY UPDATE balance = ?, last_updated = ?");
         return success.get();
     }
+
+    @Override
+    public int depositAll(String type, int amount) {
+        if (amount < 0) {
+            return 0;
+        }
+
+        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
+        final int[] affectedRows = {0};
+        
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            try {
+                long now = System.currentTimeMillis();
+                statement.setString(1, currencyType);
+                statement.setInt(2, amount);
+                statement.setLong(3, now);
+                
+                affectedRows[0] = statement.executeUpdate();
+                
+                AccountCache.CACHE_DATA.forEach((uuid, cache) -> {
+                    cache.addBalance(currencyType, amount);
+                });
+            } catch (SQLException throwables) {
+                Main.getInstance().getLogger().log(Level.WARNING, "批量给予货币失败", throwables);
+            } finally {
+                this.DATA_SOURCE.close(statement, null);
+            }
+        }, "UPDATE nyeconomy_balances SET balance = balance + ?, last_updated = ? WHERE currency_type = ?");
+        
+        return affectedRows[0];
+    }
+
+    @Override
+    public int resetAll(String type) {
+        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
+        final int[] affectedRows = {0};
+        
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            try {
+                long now = System.currentTimeMillis();
+                statement.setLong(1, now);
+                statement.setString(2, currencyType);
+                
+                affectedRows[0] = statement.executeUpdate();
+                
+                AccountCache.CACHE_DATA.forEach((uuid, cache) -> {
+                    cache.setBalance(currencyType, 0);
+                });
+            } catch (SQLException throwables) {
+                Main.getInstance().getLogger().log(Level.WARNING, "批量重置货币失败", throwables);
+            } finally {
+                this.DATA_SOURCE.close(statement, null);
+            }
+        }, "UPDATE nyeconomy_balances SET balance = 0, last_updated = ? WHERE currency_type = ?");
+        
+        return affectedRows[0];
+    }
 }

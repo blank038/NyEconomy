@@ -26,6 +26,10 @@ public abstract class AbstractStorgeHandler {
 
     public abstract String queryPlayerName(UUID uuid);
 
+    public abstract int depositAll(String type, int amount);
+
+    public abstract int resetAll(String type);
+
     public AccountCache getPlayerCache(UUID uuid) {
         return null;
     }

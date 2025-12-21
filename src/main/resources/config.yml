@@ -15,9 +15,9 @@ data-option:
     # 数据库密码
     password: "password"
 #开启哪些经济类型
-Enable: [ ]
+enable: [ ]
 #禁止哪些货币可以转账
-PayBlackList: [ ]
+pay-black-list: [ ]
 # 刷新排行间隔, 单位: 秒, 0 为禁用
 refresh-delay: 600
 # 排行缓存数量
@@ -31,8 +31,8 @@ economy-bridge:
 placeholder:
   none: "无"
 #提示信息内容
-Message:
-  Prefix: "&3多经济系统 §f"
+message:
+  prefix: "&3多经济系统 §f"
   help:
     default:
       - "&8[&aNyEconomy&8]: &e多经济命令帮助"
@@ -51,28 +51,69 @@ Message:
       - "&8- &b/%c give <玩家> <货币> <数量> [是否提示] &f给予玩家货币"
       - "&8- &b/%c take <玩家> <货币> <数量> &f扣除玩家货币"
       - "&8- &b/%c reset <玩家> <货币> &f清空玩家指定货币"
+      - "&8- &b/%c giveall <货币> <数量> &f给予全服玩家指定货币"
+      - "&8- &b/%c resetall <货币> &f重置全服玩家指定货币"
       - "&8- &b/%c delete <货币> &f删除某个货币"
       - "&8- &b/%c migrate <from> <to> &f数据迁移工具"
       - "&8- &b/%c reload &f重载插件配置文件"
-  FailCurrency: "&c没有该货币类型！"
-  Delay: "&c命令冷却中, 请等待1秒！"
-  NoHasPermission: "&c你没有权限这样子做！"
-  Reload: "&a插件配置重载完成！"
-  FailType: "&c请输入正确的货币类型！"
-  FailAmount: "&c请输入一个正确的数量！"
-  Give: "&a成功给予玩家 %player% &f%amount%%type%"
-  Pay: "&a成功向 &f%player% &a转账 &f%amount%%type%"
-  LackCurrency: "&c你没有足够的%type%来购买这个商品, 需要: &f%amount%%type%"
-  BuySuccess: "&a成功购买商品: &f%commodity%"
-  PayCancelled: "&c该货币不允许转账！"
-  Take: "&a成功扣除玩家 &f%player% &f%amount%%type%&a, 当前余额: &f%last%"
+  fail-currency: "&c没有该货币类型！"
+  delay: "&c命令冷却中, 请等待1秒！"
+  no-has-permission: "&c你没有权限这样子做！"
+  reload: "&a插件配置重载完成！"
+  fail-type: "&c请输入正确的货币类型！"
+  fail-amount: "&c请输入一个正确的数量！"
+  give: "&a成功给予玩家 %player% &f%amount%%type%"
+  pay: "&a成功向 &f%player% &a转账 &f%amount%%type%"
+  lack-currency: "&c你没有足够的%type%来购买这个商品, 需要: &f%amount%%type%"
+  buy-success: "&a成功购买商品: &f%commodity%"
+  pay-cancelled: "&c该货币不允许转账！"
+  take: "&a成功扣除玩家 &f%player% &f%amount%%type%&a, 当前余额: &f%last%"
   empty-data: "排行榜还未进行计算, 请稍等."
   top:
     header: "&a----========= &f%currency% &6排行榜 &a=========----"
     line: "&e%top%. &b%name% &f- &b%count%"
   set: "&a成功设置玩家 &f%player% &f%type% &a数量为 &f%amount%"
   receive: "收到来自 &a%sender% &f给予的 &a%amount%%type%"
+  no-data: "&c无可查询数据."
+  error-command: "&c命令参数不存在, 输入 §f/%c help &c查看命令帮助！"
+  player-offline: "&c该玩家不在线!"
+  enter-commodity: "&c请输入商品名."
+  commodity-not-found: "&c商品不存在, 请输入正确的商品名."
+  cannot-pay-self: "&c不能给自己转账！"
+  insufficient-balance: "&c你没有足够的货币可以向其他玩家转账！"
+  currency-exists: "&c该货币已存在！"
+  currency-created: "&a成功创建货币类型: &f%type%&a 请前往 &fconfig.yml &a启用该货币"
+  enter-player: "&c请输入玩家名！"
+  reset-success: "&e成功重置玩家货币&f(%type%)&e的数据"
+  delete-success: "&e成功移除货币: &f%type% &e商品: &f%count%"
+  migrate:
+    usage-1: "&c用法: /nye migrate <from> <to>"
+    usage-2: "&c示例: /nye migrate yaml sqlite"
+    usage-3: "&c支持迁移:"
+    usage-4: "&c  源: yaml, mysql_old"
+    usage-5: "&c  目标: sqlite, mysql"
+    start-header: "&e======== 开始数据迁移 ========"
+    start-info: "&e源: %from% -> 目标: %to%"
+    start-wait: "&e请稍等,迁移过程中请勿操作服务器..."
+    success-header: "&a======== 迁移完成 ========"
+    success-total: "&a总记录: %total%"
+    success-count: "&a成功: %success%, 失败: %fail%"
+    success-suggest: "&e建议重启服务器以应用更改！"
+    fail-header: "&c======== 迁移失败 ========"
+    fail-reason: "&c失败原因: %reason%"
+    fail-check: "&c请检查配置文件和控制台日志"
+  migrate-uuid:
+    start: "&e开始 UUID 迁移..."
+    mysql-not-supported: "&cMySQL 模式暂不支持自动迁移,请手动操作"
+    no-connection: "&c无法获取数据库连接"
+    success: "&a迁移成功!"
+    total-players: "&a总玩家数: %total%"
+    count: "&a成功: %success%, 失败: %fail%"
+    suggest-restart: "&e请重启服务器以应用更改!"
+    fail: "&c迁移失败: %reason%"
+  giveall-success: "&a成功给予全服 &f%count% &a名玩家 &f%amount%%type%"
+  resetall-success: "&a成功重置全服 &f%count% &a名玩家的 &f%type%"
 #命令使用冷却时间, 单位：秒
-CommandDelay: 1
+command-delay: 1
 # 是否开启 debug
 debug: false
