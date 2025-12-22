@@ -1,5 +1,6 @@
 package com.mc9y.nyeconomy;
 
+import com.aystudio.core.bukkit.plugin.AyPlugin;
 import com.aystudio.core.bukkit.util.common.TextUtil;
 import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.bridge.VaultBridge;
@@ -12,27 +13,19 @@ import com.mc9y.nyeconomy.handler.SqliteStorageHandler;
 import com.mc9y.nyeconomy.hook.PlaceholderHook;
 import com.mc9y.nyeconomy.listener.PlayerListener;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Pattern;
 
-/**
- * @author Blank038
- */
-public class Main extends JavaPlugin {
-    private static final Pattern PATTERN = Pattern.compile("#[A-f0-9]{6}");
+public class Main extends AyPlugin {
     private static NyEconomyAPI economyAPI;
     private static Main instance;
 
-    private boolean logStatus, debug;
+    private boolean debug;
     public List<String> vaults = new ArrayList<>();
-    public String prefix;
 
     public static Main getInstance() {
         return instance;
@@ -48,8 +41,10 @@ public class Main extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        instance = this;
         economyAPI = new NyEconomyAPI();
-        logStatus = true;
+
+        this.getConsoleLogger().setPrefix("");
         this.loadConfig();
         
         String storageType = this.getConfig().getString("data-option.type", "sqlite").toLowerCase();
@@ -60,7 +55,8 @@ public class Main extends JavaPlugin {
         }
         
         Bukkit.getPluginManager().registerEvents(new PlayerListener(), this);
-        super.getCommand("nye").setExecutor(new NyeCommand(this));
+        this.getCommand("nye").setExecutor(new NyeCommand(this));
+
         if (Bukkit.getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
             new PlaceholderHook(this).register();
         }
@@ -77,70 +73,52 @@ public class Main extends JavaPlugin {
         }
     }
 
-    @Override
-    public void onLoad() {
-        instance = this;
-        this.loadConfig();
-    }
-
     public void loadConfig() {
-        this.log("§b[NyEconomy]§f ================================");
-        this.log("§b[NyEconomy]§f  §a> §b正在加载九域多经济系统...");
+        print(" ");
+        print("   &3NyEconomy &bv" + this.getDescription().getVersion());
+        print(" ");
+
         saveDefaultConfig();
         reloadConfig();
-        prefix = Main.getString("Message.Prefix");
         debug = getConfig().getBoolean("debug");
-        // 输出 PlaceholderAPI 挂钩信息
-        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            this.log("§b[NyEconomy]§f  §a> §e成功挂钩 PlaceholderAPI §a✔");
-        } else {
-            this.log("§b[NyEconomy]§f  §a> §7未检测到 PlaceholderAPI §c✘");
-        }
-        // 输出 Vault 是否挂钩
+
         if (Bukkit.getPluginManager().getPlugin("Vault") != null) {
             VaultBridge.register();
             VaultBridge.checkCurrencyFile();
         }
-        if (StateCache.vaultState) {
-            this.log("§b[NyEconomy]§f  §a> §e成功挂钩 Vault 经济桥 §a✔");
-        } else {
-            this.log("§b[NyEconomy]§f  §a> §7未检测到 Vault 经济桥 §c✘");
-        }
-        // 检测是否含有 HikariCP
-        if (this.hasHikariCP()) {
-            this.log("§b[NyEconomy]§f  §a> §eHikariCP 状态: §a✔ ");
-        } else {
-            this.log("§b[NyEconomy]§f  §a> §7HikariCP 状态: §c✘");
-        }
+
+        this.print("&6 * &fPlaceholderAPI: " + (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null ? "&aON" : "&cOFF"));
+        this.print("&6 * &fVault: " + (StateCache.vaultState ? "&aON" : "&cOFF"));
+        this.print("&6 * &fHikariCP: " + (this.hasHikariCP() ? "&aON" : "&cOFF"));
+
         this.loadCurrencies();
         this.loadCommodity();
-        this.log("§b[NyEconomy]§f  §a> §b九域多经济系统加载完成");
-        this.log("§b[NyEconomy]§f ================================");
         if (TopCache.getInstance() != null) {
             TopCache.getInstance().refreshTask();
         }
+        print(" ");
     }
 
     private void loadCurrencies() {
         File currencies = new File(getDataFolder(), "Currencies");
         currencies.mkdir();
         vaults.clear();
-        this.log("§b[NyEconomy]§f  §a> §e开始加载经济货币项");
-        for (String i : getConfig().getStringList("Enable")) {
-            File cf = new File(getDataFolder() + "/Currencies/", i + ".yml");
-            if (cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"))) {
-                vaults.add(i);
-                this.log("§b[NyEconomy]§f  §a -> §2成功加载货币项: §f" + i);
-            } else {
-                this.log("§b[NyEconomy]§f  §a -> §c货币项 §f" + i + " §c不存在");
-            }
+
+        List<String> enabled = getConfig().getStringList("enable");
+        if (enabled.isEmpty()) {
+            this.print("&c * &fCurrencies: &cEMPTY");
+            return;
         }
-        this.log("§b[NyEconomy]§f  §a> §e经济加载完成, 共加载 §f%amount% §e项"
-                .replace("%amount%", String.valueOf(vaults.size())));
+        this.print("&6 * &fCurrencies:");
+        for (String i : enabled) {
+            File cf = new File(currencies, i + ".yml");
+            boolean success = cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"));
+            if (success) this.vaults.add(i);
+            this.print("&e   + &f" + i + ": " + (success ? "&aON" : "&cOFF"));
+        }
     }
 
     private void loadCommodity() {
-        this.log("§b[NyEconomy]§f  §a> §e开始加载商店物品项");
         Commodity.COMMODITY_MAP.clear();
         File shop = new File(getDataFolder(), "shop.yml");
         if (!shop.exists()) {
@@ -157,7 +135,7 @@ public class Main extends JavaPlugin {
                 fails++;
             }
         }
-        this.log("§b[NyEconomy]§f  §a> §e已加载商品 (§2成功§f[" + Commodity.COMMODITY_MAP.size() + "] §c失败§f[" + fails + "]§e)");
+        this.print("&6 * &fCommodity: &a" + Commodity.COMMODITY_MAP.size() + " &f/ &c" + fails);
     }
 
     public boolean hasHikariCP() {
@@ -169,16 +147,14 @@ public class Main extends JavaPlugin {
         }
     }
 
-    private void log(String msg) {
-        if (this.logStatus) {
-            Bukkit.getConsoleSender().sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
-        }
+    private void print(String msg) {
+        this.getConsoleLogger().log(msg);
     }
 
     public static String getString(String key, boolean... prefix) {
         String message = instance.getConfig().getString(key, "");
         if (prefix.length > 0 && prefix[0]) {
-            message = instance.getConfig().getString("Message.Prefix") + message;
+            message = instance.getConfig().getString("message.prefix") + message;
         }
         return TextUtil.formatHexColor(message);
     }

@@ -44,8 +44,8 @@ public class PlaceholderHook extends PlaceholderExpansion {
         }
         String currency = this.formatVariable(s);
         if ("mysql".equalsIgnoreCase(plugin.getConfig().getString("data-option.type"))) {
-            if (AccountCache.CACHE_DATA.containsKey(player.getName())) {
-                return String.valueOf(AccountCache.CACHE_DATA.get(player.getName()).balance(currency));
+            if (AccountCache.CACHE_DATA.containsKey(player.getUniqueId())) {
+                return String.valueOf(AccountCache.CACHE_DATA.get(player.getUniqueId()).balance(currency));
             }
             return "0";
         } else if (Main.getInstance().vaults.contains(s)) {

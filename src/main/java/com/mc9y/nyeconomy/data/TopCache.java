@@ -8,9 +8,6 @@ import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * @author Blank038
- */
 public class TopCache {
     private static TopCache topCache;
 
@@ -24,6 +21,7 @@ public class TopCache {
 
     public TopCache() {
         topCache = this;
+        this.refreshTask();
     }
 
     public boolean isEnabled() {
@@ -56,7 +54,8 @@ public class TopCache {
         // 清空数据
         this.topData.clear();
         for (String currency : Main.getInstance().vaults) {
-            this.topData.put(currency, this.calc(currency, cacheData));
+            final String finalCurrency = Main.getNyEconomyAPI().checkVaultType(currency);
+            this.topData.put(currency, this.calc(finalCurrency, cacheData));
         }
     }
 

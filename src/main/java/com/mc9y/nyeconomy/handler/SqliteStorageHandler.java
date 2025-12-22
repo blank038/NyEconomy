@@ -232,15 +232,19 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
             
             Map<String, AccountTopCache> cacheData = new HashMap<>();
             try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery("SELECT DISTINCT player_uuid FROM nyeconomy_balances")) {
+                 ResultSet rs = stmt.executeQuery(
+                         "SELECT DISTINCT p.player_name FROM nyeconomy_balances b " +
+                         "JOIN nyeconomy_players p ON b.player_uuid = p.player_uuid")) {
                 
                 while (rs.next()) {
-                    String playerUuid = rs.getString("player_uuid");
+                    String playerName = rs.getString("player_name");
                     AccountTopCache topCache = new AccountTopCache();
                     
                     try (PreparedStatement ps = connection.prepareStatement(
-                            "SELECT currency_type, balance FROM nyeconomy_balances WHERE player_uuid = ?")) {
-                        ps.setString(1, playerUuid);
+                            "SELECT b.currency_type, b.balance FROM nyeconomy_balances b " +
+                            "JOIN nyeconomy_players p ON b.player_uuid = p.player_uuid " +
+                            "WHERE p.player_name = ?")) {
+                        ps.setString(1, playerName);
                         try (ResultSet balanceRs = ps.executeQuery()) {
                             while (balanceRs.next()) {
                                 topCache.getTempMap().put(
@@ -251,7 +255,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
                         }
                     }
                     
-                    cacheData.put(playerUuid, topCache);
+                    cacheData.put(playerName, topCache);
                 }
             }
             

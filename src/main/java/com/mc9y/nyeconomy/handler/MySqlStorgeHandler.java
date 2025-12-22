@@ -346,9 +346,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             try {
                 resultSet = statement.executeQuery();
                 while (resultSet.next()) {
-                    String playerUuid = resultSet.getString("player_uuid");
-                    if (!cacheData.containsKey(playerUuid)) {
-                        cacheData.put(playerUuid, new AccountTopCache());
+                    String playerName = resultSet.getString("player_name");
+                    if (!cacheData.containsKey(playerName)) {
+                        cacheData.put(playerName, new AccountTopCache());
                     }
                 }
             } catch (SQLException throwables) {
@@ -356,14 +356,15 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
             } finally {
                 this.DATA_SOURCE.close(statement, resultSet);
             }
-        }, "SELECT DISTINCT player_uuid FROM nyeconomy_balances");
+        }, "SELECT DISTINCT p.player_name FROM nyeconomy_balances b " +
+           "JOIN nyeconomy_players p ON b.player_uuid = p.player_uuid");
 
-        for (String playerUuid : cacheData.keySet()) {
-            AccountTopCache topCache = cacheData.get(playerUuid);
+        for (String playerName : cacheData.keySet()) {
+            AccountTopCache topCache = cacheData.get(playerName);
             this.DATA_SOURCE.connect((connection, statement) -> {
                 ResultSet resultSet = null;
                 try {
-                    statement.setString(1, playerUuid);
+                    statement.setString(1, playerName);
                     resultSet = statement.executeQuery();
                     while (resultSet.next()) {
                         topCache.getTempMap().put(
@@ -376,7 +377,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 } finally {
                     this.DATA_SOURCE.close(statement, resultSet);
                 }
-            }, "SELECT currency_type, balance FROM nyeconomy_balances WHERE player_uuid=?");
+            }, "SELECT b.currency_type, b.balance FROM nyeconomy_balances b " +
+               "JOIN nyeconomy_players p ON b.player_uuid = p.player_uuid " +
+               "WHERE p.player_name = ?");
         }
 
         TopCache.getInstance().submitCache(cacheData);

@@ -1,6 +1,7 @@
 package com.mc9y.nyeconomy.migration;
 
 import com.mc9y.nyeconomy.Main;
+import com.mc9y.nyeconomy.service.UUIDService;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -232,35 +233,43 @@ public class MigrationHandler {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
             conn.setAutoCommit(false);
             
-            String sql = "INSERT INTO nyeconomy_balances (player_name, currency_type, balance, last_updated) " +
+            String playerSql = "INSERT OR IGNORE INTO nyeconomy_players (player_uuid, player_name, last_seen) VALUES (?, ?, ?)";
+            String balanceSql = "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
                         "VALUES (?, ?, ?, ?) " +
-                        "ON CONFLICT(player_name, currency_type) DO UPDATE SET balance = ?, last_updated = ?";
+                        "ON CONFLICT(player_uuid, currency_type) DO UPDATE SET balance = ?, last_updated = ?";
             
-            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            try (PreparedStatement playerPs = conn.prepareStatement(playerSql);
+                 PreparedStatement balancePs = conn.prepareStatement(balanceSql)) {
                 long now = System.currentTimeMillis();
                 int batchCount = 0;
                 
                 for (Map.Entry<String, Map<String, Integer>> playerEntry : migrationData.entrySet()) {
                     String playerName = playerEntry.getKey();
+                    UUID playerUUID = UUIDService.getInstance().getPlayerUUID(playerName);
+                    
+                    playerPs.setString(1, playerUUID.toString());
+                    playerPs.setString(2, playerName);
+                    playerPs.setLong(3, now);
+                    playerPs.addBatch();
                     
                     for (Map.Entry<String, Integer> balanceEntry : playerEntry.getValue().entrySet()) {
                         String currencyType = balanceEntry.getKey();
                         int balance = balanceEntry.getValue();
                         
                         try {
-                            ps.setString(1, playerName);
-                            ps.setString(2, currencyType);
-                            ps.setInt(3, balance);
-                            ps.setLong(4, now);
-                            ps.setInt(5, balance);
-                            ps.setLong(6, now);
-                            ps.addBatch();
+                            balancePs.setString(1, playerUUID.toString());
+                            balancePs.setString(2, currencyType);
+                            balancePs.setInt(3, balance);
+                            balancePs.setLong(4, now);
+                            balancePs.setInt(5, balance);
+                            balancePs.setLong(6, now);
+                            balancePs.addBatch();
                             
                             batchCount++;
                             
-                            // 每 1000 条执行一次批处理
                             if (batchCount >= 1000) {
-                                ps.executeBatch();
+                                playerPs.executeBatch();
+                                balancePs.executeBatch();
                                 conn.commit();
                                 result.successCount += batchCount;
                                 batchCount = 0;
@@ -274,9 +283,9 @@ public class MigrationHandler {
                     }
                 }
                 
-                // 执行剩余的批处理
                 if (batchCount > 0) {
-                    ps.executeBatch();
+                    playerPs.executeBatch();
+                    balancePs.executeBatch();
                     conn.commit();
                     result.successCount += batchCount;
                 }
@@ -306,35 +315,43 @@ public class MigrationHandler {
             try (Connection conn = DriverManager.getConnection(url, user, password)) {
                 conn.setAutoCommit(false);
                 
-                String sql = "INSERT INTO nyeconomy_balances (player_name, currency_type, balance, last_updated) " +
+                String playerSql = "INSERT INTO nyeconomy_players (player_uuid, player_name, last_seen) " +
+                            "VALUES (?, ?, ?) " +
+                            "ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), last_seen = VALUES(last_seen)";
+                String balanceSql = "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
                             "VALUES (?, ?, ?, ?) " +
-                            "ON DUPLICATE KEY UPDATE balance = ?, last_updated = ?";
+                            "ON DUPLICATE KEY UPDATE balance = VALUES(balance), last_updated = VALUES(last_updated)";
                 
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                try (PreparedStatement playerPs = conn.prepareStatement(playerSql);
+                     PreparedStatement balancePs = conn.prepareStatement(balanceSql)) {
                     long now = System.currentTimeMillis();
                     int batchCount = 0;
                     
                     for (Map.Entry<String, Map<String, Integer>> playerEntry : migrationData.entrySet()) {
                         String playerName = playerEntry.getKey();
+                        UUID playerUUID = UUIDService.getInstance().getPlayerUUID(playerName);
+                        
+                        playerPs.setString(1, playerUUID.toString());
+                        playerPs.setString(2, playerName);
+                        playerPs.setLong(3, now);
+                        playerPs.addBatch();
                         
                         for (Map.Entry<String, Integer> balanceEntry : playerEntry.getValue().entrySet()) {
                             String currencyType = balanceEntry.getKey();
                             int balance = balanceEntry.getValue();
                             
                             try {
-                                ps.setString(1, playerName);
-                                ps.setString(2, currencyType);
-                                ps.setInt(3, balance);
-                                ps.setLong(4, now);
-                                ps.setInt(5, balance);
-                                ps.setLong(6, now);
-                                ps.addBatch();
+                                balancePs.setString(1, playerUUID.toString());
+                                balancePs.setString(2, currencyType);
+                                balancePs.setInt(3, balance);
+                                balancePs.setLong(4, now);
+                                balancePs.addBatch();
                                 
                                 batchCount++;
                                 
-                                // 每 1000 条执行一次批处理
                                 if (batchCount >= 1000) {
-                                    ps.executeBatch();
+                                    playerPs.executeBatch();
+                                    balancePs.executeBatch();
                                     conn.commit();
                                     result.successCount += batchCount;
                                     batchCount = 0;
@@ -348,9 +365,9 @@ public class MigrationHandler {
                         }
                     }
                     
-                    // 执行剩余的批处理
                     if (batchCount > 0) {
-                        ps.executeBatch();
+                        playerPs.executeBatch();
+                        balancePs.executeBatch();
                         conn.commit();
                         result.successCount += batchCount;
                     }
