@@ -55,7 +55,7 @@ public class PlaceholderHook extends PlaceholderExpansion {
     }
 
     private String formatVariable(String line) {
-        return line.replace("{ul}", "_");
+        return Main.getNyEconomyAPI().checkVaultType(line.replace("{ul}", "_"));
     }
 
     @Override
