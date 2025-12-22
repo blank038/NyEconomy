@@ -6,7 +6,7 @@
 
     <groupId>com.mc9y.nyeconomy</groupId>
     <artifactId>NyEconomy</artifactId>
-    <version>1.7.2-SNAPSHOT</version>
+    <version>2.0.0-ALPHA</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
@@ -24,10 +24,9 @@
     </repositories>
     <dependencies>
         <dependency>
-            <groupId>dev.folia</groupId>
-            <artifactId>folia-api</artifactId>
-            <version>1.20.1-R0.1-SNAPSHOT</version>
-            <scope>provided</scope>
+            <groupId>org.spigotmc</groupId>
+            <artifactId>spigot-api</artifactId>
+            <version>1.12.2-R0.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>com.zaxxer</groupId>
@@ -55,7 +54,7 @@
         <dependency>
             <groupId>com.aystudio.core</groupId>
             <artifactId>AyCore</artifactId>
-            <version>1.0.3-BETA</version>
+            <version>1.4.2-BETA</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

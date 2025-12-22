@@ -39,17 +39,23 @@ public class PlaceholderHook extends PlaceholderExpansion {
         String[] split = s.split("_");
         String key = s.contains("_") ? split[1] : s;
         if (this.placeholderConsumerMap.containsKey(key)) {
-            return this.placeholderConsumerMap.get(key).accept(player, split.length > 0 ? split[0] : key, split);
+            String currency = this.formatVariable(split[0]);
+            return this.placeholderConsumerMap.get(key).accept(player, currency, split);
         }
+        String currency = this.formatVariable(s);
         if ("mysql".equalsIgnoreCase(plugin.getConfig().getString("data-option.type"))) {
-            if (AccountCache.CACHE_DATA.containsKey(player.getName())) {
-                return String.valueOf(AccountCache.CACHE_DATA.get(player.getName()).balance(s));
+            if (AccountCache.CACHE_DATA.containsKey(player.getUniqueId())) {
+                return String.valueOf(AccountCache.CACHE_DATA.get(player.getUniqueId()).balance(currency));
             }
             return "0";
         } else if (Main.getInstance().vaults.contains(s)) {
-            return String.valueOf(Main.getNyEconomyAPI().getBalance(s, player.getName()));
+            return String.valueOf(Main.getNyEconomyAPI().getBalance(currency, player.getName()));
         }
         return "";
+    }
+
+    private String formatVariable(String line) {
+        return Main.getNyEconomyAPI().checkVaultType(line.replace("{ul}", "_"));
     }
 
     @Override

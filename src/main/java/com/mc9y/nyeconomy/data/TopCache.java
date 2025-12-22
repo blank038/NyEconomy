@@ -1,21 +1,18 @@
 package com.mc9y.nyeconomy.data;
 
+import com.aystudio.core.bukkit.AyCore;
+import com.aystudio.core.bukkit.platform.wrapper.ITaskWrapper;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
-import com.mc9y.nyeconomy.helper.SchedulerHelper;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * @author Blank038
- * @since 2021-03-11
- */
 public class TopCache {
     private static TopCache topCache;
 
     private final Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
-    private Object task;
+    private ITaskWrapper task;
     private boolean enableTop;
 
     public static TopCache getInstance() {
@@ -24,6 +21,7 @@ public class TopCache {
 
     public TopCache() {
         topCache = this;
+        this.refreshTask();
     }
 
     public boolean isEnabled() {
@@ -36,12 +34,12 @@ public class TopCache {
 
     public void refreshTask() {
         if (task != null) {
-            SchedulerHelper.cancelTask(task);
+            task.cancel();
         }
         int delay = Main.getInstance().getConfig().getInt("refresh-delay");
         if (delay > 0) {
             this.setTopEnabled(true);
-            task = SchedulerHelper.runTaskTimerAsync(() -> AbstractStorgeHandler.getHandler().refreshTop(), 20L * 5, 20L * delay);
+            task = AyCore.getPlatformApi().runTaskTimerAsynchronously(Main.getInstance(), () -> AbstractStorgeHandler.getHandler().refreshTop(), 20L * 5, 20L * delay);
         } else {
             this.setTopEnabled(false);
         }
@@ -56,7 +54,8 @@ public class TopCache {
         // 清空数据
         this.topData.clear();
         for (String currency : Main.getInstance().vaults) {
-            this.topData.put(currency, this.calc(currency, cacheData));
+            final String finalCurrency = Main.getNyEconomyAPI().checkVaultType(currency);
+            this.topData.put(currency, this.calc(finalCurrency, cacheData));
         }
     }
 

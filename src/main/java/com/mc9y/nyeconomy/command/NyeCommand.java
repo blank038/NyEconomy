@@ -1,13 +1,14 @@
 package com.mc9y.nyeconomy.command;
 
+import com.aystudio.core.bukkit.AyCore;
 import com.mc9y.nyeconomy.Commodity;
 import com.mc9y.nyeconomy.Main;
-import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.api.event.PlayerBuyCommodityEvent;
-import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.TopCache;
-import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
+import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.message.TopMessage;
+import com.mc9y.nyeconomy.migration.MigrationHandler;
+import com.mc9y.nyeconomy.service.UUIDService;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,12 +17,12 @@ import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.List;
-
-/**
- * @author Blank038
- */
+import java.util.UUID;
+import java.util.logging.Level;
 public class NyeCommand implements CommandExecutor {
     private final Main instance;
     private final List<String> cooldown = new ArrayList<>();
@@ -33,15 +34,15 @@ public class NyeCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (cooldown.contains(sender.getName())) {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Delay").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.delay", true));
             return true;
         }
         if (!sender.hasPermission("com.mc9y.nyeconomy.bypass")) {
             cooldown.add(sender.getName());
-            Bukkit.getScheduler().runTaskLaterAsynchronously(instance, () -> cooldown.remove(sender.getName()), 20L * instance.getConfig().getInt("CommandDelay"));
+            AyCore.getPlatformApi().runTaskLaterAsynchronously(instance, () -> cooldown.remove(sender.getName()), 20L * instance.getConfig().getInt("command-delay"));
         }
         if (args.length == 0 || "help".equalsIgnoreCase(args[0])) {
-            for (String text : instance.getConfig().getStringList("Message.help." + (sender.hasPermission("nye.admin") ? "admin" : "default"))) {
+            for (String text : instance.getConfig().getStringList("message.help." + (sender.hasPermission("nye.admin") ? "admin" : "default"))) {
                 sender.sendMessage(text.replace("&", "§").replace("%c", label));
             }
         } else {
@@ -68,12 +69,7 @@ public class NyeCommand implements CommandExecutor {
                     this.deleteCurrency(sender, args);
                     break;
                 case "reload":
-                    if (sender.hasPermission("nye.admin")) {
-                        instance.loadConfig();
-                        sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Reload").replace("&", "§"));
-                    } else {
-                        sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
-                    }
+                    this.reloadConfig(sender);
                     break;
                 case "set":
                     this.change(sender, args, 2);
@@ -87,8 +83,20 @@ public class NyeCommand implements CommandExecutor {
                 case "top":
                     this.top(sender, args);
                     break;
+                case "migrate":
+                    this.migrateData(sender, args);
+                    break;
+                case "migrate-uuid":
+                    this.migrateUUID(sender);
+                    break;
+                case "giveall":
+                    this.giveAll(sender, args);
+                    break;
+                case "resetall":
+                    this.resetAll(sender, args);
+                    break;
                 default:
-                    sender.sendMessage(instance.prefix + "§c命令参数不存在, 输入 §f/" + label + " help §c查看命令帮助！");
+                    sender.sendMessage(Main.getString("message.error-command", true).replace("%c", label));
                     break;
             }
         }
@@ -100,24 +108,14 @@ public class NyeCommand implements CommandExecutor {
      */
     private void showInfo(CommandSender sender) {
         if (sender instanceof Player) {
-            boolean mysql = MySqlStorgeHandler.SQL_STATUS;
+            Player player = (Player) sender;
             if (instance.vaults.isEmpty()) {
-                sender.sendMessage(instance.prefix + "§c无可查询数据.");
+                sender.sendMessage(Main.getString("message.no-data", true));
                 return;
             }
-            if (mysql && AccountCache.CACHE_DATA.containsKey(sender.getName())) {
-                sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
-                AccountCache cache = AccountCache.CACHE_DATA.get(sender.getName());
-                for (String v : instance.vaults) {
-                    sender.sendMessage(" §a> §f" + v + ": §7" + cache.balance(v));
-                }
-            } else if (!mysql && !"mysql".equalsIgnoreCase(instance.getConfig().getString("data-option.type"))) {
-                sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
-                for (String v : instance.vaults) {
-                    sender.sendMessage(" §a> §f" + v + ": §7" + NyEconomyAPI.getInstance().getBalance(v, sender.getName()));
-                }
-            } else {
-                sender.sendMessage(instance.prefix + "§c无可查询数据.");
+            sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
+            for (String v : instance.vaults) {
+                sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, player.getName()));
             }
         }
     }
@@ -132,18 +130,19 @@ public class NyeCommand implements CommandExecutor {
             if (checkArgs(sender, args)) {
                 return;
             }
+            UUID playerUUID = UUIDService.getInstance().getPlayerUUID(args[1]);
+            
             int amount;
             try {
                 amount = Integer.parseInt(args[3]);
             } catch (Exception e) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailAmount").replace("&", "§"));
+                sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
             switch (type) {
                 case 0:
-                    // 给予
-                    Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
-                    sender.sendMessage(Main.getString("Message.Give", true)
+                    Main.getNyEconomyAPI().deposit(args[2], playerUUID, amount);
+                    sender.sendMessage(Main.getString("message.give", true)
                             .replace("&", "§")
                             .replace("%type%", args[2])
                             .replace("%amount%", String.valueOf(amount))
@@ -151,7 +150,7 @@ public class NyeCommand implements CommandExecutor {
                     if (args.length > 4 && "true".equalsIgnoreCase(args[4])) {
                         Player target = Bukkit.getPlayerExact(args[1]);
                         if (target != null && target.isOnline()) {
-                            target.sendMessage(Main.getString("Message.receive", true)
+                            target.sendMessage(Main.getString("message.receive", true)
                                     .replace("%type%", args[2])
                                     .replace("%amount%", String.valueOf(amount))
                                     .replace("%sender%", sender.getName())
@@ -160,20 +159,16 @@ public class NyeCommand implements CommandExecutor {
                     }
                     break;
                 case 1:
-                    // 减少
-                    Main.getNyEconomyAPI().withdraw(args[2], args[1], amount);
-                    sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Take")
-                            .replace("&", "§")
+                    Main.getNyEconomyAPI().withdraw(args[2], playerUUID, amount);
+                    sender.sendMessage(Main.getString("message.take", true)
                             .replace("%type%", args[2])
                             .replace("%amount%", String.valueOf(amount))
                             .replace("%player%", args[1])
-                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], args[1]))));
+                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], playerUUID))));
                     break;
                 case 2:
-                    // 设置
-                    Main.getNyEconomyAPI().set(args[2], args[1], amount);
-                    sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.set")
-                            .replace("&", "§")
+                    Main.getNyEconomyAPI().set(args[2], playerUUID, amount);
+                    sender.sendMessage(Main.getString("message.set", true)
                             .replace("%type%", args[2])
                             .replace("%amount%", String.valueOf(amount))
                             .replace("%player%", args[1]));
@@ -182,7 +177,7 @@ public class NyeCommand implements CommandExecutor {
                     break;
             }
         } else {
-            sender.sendMessage(Main.getString("Message.NoHasPermission", true));
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
         }
     }
 
@@ -192,11 +187,11 @@ public class NyeCommand implements CommandExecutor {
     private void look(CommandSender sender, String[] args) {
         if (sender.hasPermission("nye.look")) {
             if (args.length == 1) {
-                sender.sendMessage(instance.prefix + "§c该玩家不在线!");
+                sender.sendMessage(Main.getString("message.player-offline", true));
                 return;
             }
             if (instance.vaults.isEmpty()) {
-                sender.sendMessage(instance.prefix + "§c无可查询数据.");
+                sender.sendMessage(Main.getString("message.no-data", true));
                 return;
             }
             sender.sendMessage("§f" + args[1] + " 的个人经济情况;");
@@ -204,7 +199,7 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, args[1]));
             }
         } else {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
         }
     }
 
@@ -215,16 +210,16 @@ public class NyeCommand implements CommandExecutor {
         if (sender instanceof Player) {
             Player player = (Player) sender;
             if (args.length == 1) {
-                player.sendMessage(instance.prefix + "§c请输入商品名.");
+                player.sendMessage(Main.getString("message.enter-commodity", true));
                 return;
             }
             if (!Commodity.COMMODITY_MAP.containsKey(args[1])) {
-                player.sendMessage(instance.prefix + "§c商品不存在, 请输入正确的商品名.");
+                player.sendMessage(Main.getString("message.commodity-not-found", true));
                 return;
             }
             Commodity commodity = Commodity.COMMODITY_MAP.get(args[1]);
             if (Main.getNyEconomyAPI().getBalance(commodity.getType(), player.getName()) < commodity.getAmount()) {
-                player.sendMessage(instance.prefix + instance.getConfig().getString("Message.LackCurrency").replace("&", "§")
+                player.sendMessage(Main.getString("message.lack-currency", true)
                         .replace("%type%", commodity.getType()).replace("%amount%", commodity.getAmount() + ""));
                 return;
             }
@@ -233,10 +228,9 @@ public class NyeCommand implements CommandExecutor {
             if (event.isCancelled()) {
                 return;
             }
-            // 开始扣除玩家货币
             Main.getNyEconomyAPI().withdraw(commodity.getType(), player.getName(), event.getPrice());
             commodity.give(player.getName());
-            player.sendMessage(instance.prefix + instance.getConfig().getString("Message.BuySuccess").replace("&", "§")
+            player.sendMessage(Main.getString("message.buy-success", true)
                     .replace("%commodity%", commodity.getName()));
         }
     }
@@ -249,36 +243,36 @@ public class NyeCommand implements CommandExecutor {
             if (checkArgs(sender, args)) {
                 return;
             }
-            if (instance.getConfig().getStringList("PayBlackList").contains(args[2])) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.PayCancelled").replace("&", "§"));
+            if (instance.getConfig().getStringList("pay-black-list").contains(args[2])) {
+                sender.sendMessage(Main.getString("message.pay-cancelled", true));
                 return;
             }
             int amount;
             try {
                 amount = Integer.parseInt(args[3]);
             } catch (Exception e) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailAmount").replace("&", "§"));
+                sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
             if (amount <= 0) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailAmount").replace("&", "§"));
+                sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
             if (args[1].equals(sender.getName())) {
-                sender.sendMessage(instance.prefix + "§c不能给自己转账！");
+                sender.sendMessage(Main.getString("message.cannot-pay-self", true));
                 return;
             }
             if (Main.getNyEconomyAPI().getBalance(args[2], sender.getName()) < amount) {
-                sender.sendMessage(instance.prefix + "§c你没有足够的货币可以向其他玩家转账！");
+                sender.sendMessage(Main.getString("message.insufficient-balance", true));
                 return;
             }
             Main.getNyEconomyAPI().withdraw(args[2], sender.getName(), amount);
             Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.Pay").replace("&", "§")
+            sender.sendMessage(Main.getString("message.pay", true)
                     .replace("%type%", args[2]).replace("%amount%", amount + "")
                     .replace("%player%", args[1]));
         } else {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
         }
     }
 
@@ -288,11 +282,11 @@ public class NyeCommand implements CommandExecutor {
     private void createCurrency(CommandSender sender, String[] args) {
         if (sender.hasPermission("nye.admin")) {
             if (args.length <= 1) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailType").replace("&", "§"));
+                sender.sendMessage(Main.getString("message.fail-type", true));
                 return;
             }
             if (instance.vaults.contains(args[1])) {
-                sender.sendMessage(instance.prefix + "§c该货币已存在！");
+                sender.sendMessage(Main.getString("message.currency-exists", true));
                 return;
             }
             File f = new File(instance.getDataFolder() + "/Currencies/", args[1] + ".yml");
@@ -302,7 +296,7 @@ public class NyeCommand implements CommandExecutor {
                 e.printStackTrace();
             }
             instance.vaults.add(args[1]);
-            sender.sendMessage(instance.prefix + "§a成功创建货币类型: §f" + args[1] + "§a 请前往 §fconfig.yml §a启用该货币");
+            sender.sendMessage(Main.getString("message.currency-created", true).replace("%type%", args[1]));
         }
     }
 
@@ -312,21 +306,22 @@ public class NyeCommand implements CommandExecutor {
     private void resetPlayer(CommandSender sender, String[] args) {
         if (sender.hasPermission("nye.admin")) {
             if (args.length <= 1) {
-                sender.sendMessage(instance.prefix + "§c请输入玩家名！");
+                sender.sendMessage(Main.getString("message.enter-player", true));
                 return;
             }
             if (args.length <= 2) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailType").replace("&", "§"));
+                sender.sendMessage(Main.getString("message.fail-type", true));
                 return;
             }
             if (!instance.vaults.contains(args[2])) {
-                sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailCurrency").replace("&", "§"));
+                sender.sendMessage(Main.getString("message.fail-currency", true));
                 return;
             }
-            Main.getNyEconomyAPI().reset(args[2], args[1]);
-            sender.sendMessage(instance.prefix + "§e成功重置玩家货币§f(%type%)§e的数据".replace("%type%", args[2]));
+            UUID playerUUID = UUIDService.getInstance().getPlayerUUID(args[1]);
+            Main.getNyEconomyAPI().reset(args[2], playerUUID);
+            sender.sendMessage(Main.getString("message.reset-success", true).replace("%type%", args[2]));
         } else {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
         }
     }
 
@@ -350,9 +345,19 @@ public class NyeCommand implements CommandExecutor {
             for (String key : removes) {
                 Commodity.COMMODITY_MAP.remove(key);
             }
-            sender.sendMessage(instance.prefix + "§e成功移除货币: §f" + args[1] + " §e商品: §f" + removes.size());
+            sender.sendMessage(Main.getString("message.delete-success", true)
+                    .replace("%type%", args[1]).replace("%count%", String.valueOf(removes.size())));
         } else {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.NoHasPermission").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
+        }
+    }
+
+    private void reloadConfig(CommandSender sender) {
+        if (sender.hasPermission("nye.admin")) {
+            instance.loadConfig();
+            sender.sendMessage(Main.getString("message.reload", true));
+        } else {
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
         }
     }
 
@@ -375,11 +380,11 @@ public class NyeCommand implements CommandExecutor {
 
     private boolean checkCurrency(CommandSender sender, String[] args) {
         if (args.length <= 1) {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailType").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.fail-type", true));
             return true;
         }
         if (!instance.vaults.contains(args[1])) {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailCurrency").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.fail-currency", true));
             return true;
         }
         return false;
@@ -394,21 +399,193 @@ public class NyeCommand implements CommandExecutor {
      */
     private boolean checkArgs(CommandSender sender, String[] args) {
         if (args.length <= 1) {
-            sender.sendMessage(instance.prefix + "§c请输入玩家名！");
+            sender.sendMessage(Main.getString("message.enter-player", true));
             return true;
         }
         if (args.length == 2) {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailType").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.fail-type", true));
             return true;
         }
         if (args.length == 3) {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailAmount").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.fail-amount", true));
             return true;
         }
         if (!instance.vaults.contains(args[2])) {
-            sender.sendMessage(instance.prefix + instance.getConfig().getString("Message.FailCurrency").replace("&", "§"));
+            sender.sendMessage(Main.getString("message.fail-currency", true));
             return true;
         }
         return false;
+    }
+
+    /**
+     * 数据迁移命令
+     */
+    private void migrateData(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nye.admin")) {
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
+            return;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage(Main.getString("message.migrate.usage-1", false));
+            sender.sendMessage(Main.getString("message.migrate.usage-2", false));
+            sender.sendMessage(Main.getString("message.migrate.usage-3", false));
+            sender.sendMessage(Main.getString("message.migrate.usage-4", false));
+            sender.sendMessage(Main.getString("message.migrate.usage-5", false));
+            return;
+        }
+
+        String from = args[1];
+        String to = args[2];
+
+        sender.sendMessage(Main.getString("message.migrate.start-header", false));
+        sender.sendMessage(Main.getString("message.migrate.start-info", false).replace("%from%", from).replace("%to%", to));
+        sender.sendMessage(Main.getString("message.migrate.start-wait", false));
+
+        AyCore.getPlatformApi().runTaskAsynchronously(instance, () -> {
+            MigrationHandler handler = new MigrationHandler(Main.getInstance());
+            MigrationHandler.MigrationResult result = handler.migrate(from, to);
+
+            AyCore.getPlatformApi().runTask(instance, () -> {
+                if (result.success) {
+                    sender.sendMessage(Main.getString("message.migrate.success-header", false));
+                    sender.sendMessage("§a" + result.message);
+                    sender.sendMessage(Main.getString("message.migrate.success-total", false).replace("%total%", String.valueOf(result.totalRecords)));
+                    sender.sendMessage(Main.getString("message.migrate.success-count", false)
+                            .replace("%success%", String.valueOf(result.successCount))
+                            .replace("%fail%", String.valueOf(result.failCount)));
+                    sender.sendMessage(Main.getString("message.migrate.success-suggest", false));
+                } else {
+                    sender.sendMessage(Main.getString("message.migrate.fail-header", false));
+                    sender.sendMessage(Main.getString("message.migrate.fail-reason", false).replace("%reason%", result.message));
+                    sender.sendMessage(Main.getString("message.migrate.fail-check", false));
+                }
+            });
+        });
+    }
+
+    private void migrateUUID(CommandSender sender) {
+        if (!sender.hasPermission("nye.admin")) {
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
+            return;
+        }
+        
+        sender.sendMessage(Main.getString("message.migrate-uuid.start", false));
+        
+        AyCore.getPlatformApi().runTaskAsynchronously(instance, () -> {
+            try {
+                String dbType = Main.getInstance().getConfig().getString("data-option.type", "sqlite");
+                Connection connection = null;
+                
+                if ("mysql".equalsIgnoreCase(dbType)) {
+                    AyCore.getPlatformApi().runTask(instance, () -> sender.sendMessage(Main.getString("message.migrate-uuid.mysql-not-supported", false)));
+                    return;
+                }
+                
+                if ("sqlite".equalsIgnoreCase(dbType)) {
+                    Class.forName("org.sqlite.JDBC");
+                    String dbPath = new java.io.File(Main.getInstance().getDataFolder(), "data/economy.db").getAbsolutePath();
+                    connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
+                }
+                
+                if (connection == null) {
+                    AyCore.getPlatformApi().runTask(instance, () -> sender.sendMessage(Main.getString("message.migrate-uuid.no-connection", false)));
+                    return;
+                }
+                
+                com.mc9y.nyeconomy.migration.UUIDMigrationHandler handler = new com.mc9y.nyeconomy.migration.UUIDMigrationHandler();
+                com.mc9y.nyeconomy.migration.UUIDMigrationHandler.MigrationResult result = handler.migrateToUUID(connection);
+                
+                connection.close();
+                
+                AyCore.getPlatformApi().runTask(instance, () -> {
+                    if (result.success) {
+                        sender.sendMessage(Main.getString("message.migrate-uuid.success", false));
+                        sender.sendMessage(Main.getString("message.migrate-uuid.total-players", false).replace("%total%", String.valueOf(result.totalPlayers)));
+                        sender.sendMessage(Main.getString("message.migrate-uuid.count", false)
+                                .replace("%success%", String.valueOf(result.successCount))
+                                .replace("%fail%", String.valueOf(result.failCount)));
+                        sender.sendMessage(Main.getString("message.migrate-uuid.suggest-restart", false));
+                    } else {
+                        sender.sendMessage(Main.getString("message.migrate-uuid.fail", false).replace("%reason%", result.message));
+                    }
+                });
+            } catch (Exception e) {
+                Main.getInstance().getLogger().log(Level.SEVERE, "UUID 迁移失败", e);
+                AyCore.getPlatformApi().runTask(instance, () -> sender.sendMessage(Main.getString("message.migrate-uuid.fail", false).replace("%reason%", e.getMessage())));
+            }
+        });
+    }
+
+    private void giveAll(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nye.admin")) {
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(Main.getString("message.fail-type", true));
+            return;
+        }
+
+        if (!instance.vaults.contains(args[1])) {
+            sender.sendMessage(Main.getString("message.fail-currency", true));
+            return;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage(Main.getString("message.fail-amount", true));
+            return;
+        }
+
+        int amount;
+        try {
+            amount = Integer.parseInt(args[2]);
+        } catch (Exception e) {
+            sender.sendMessage(Main.getString("message.fail-amount", true));
+            return;
+        }
+
+        String currencyType = args[1];
+
+        AyCore.getPlatformApi().runTaskAsynchronously(instance, () -> {
+            int affectedRows = AbstractStorgeHandler.getHandler().depositAll(currencyType, amount);
+
+            AyCore.getPlatformApi().runTask(instance, () -> {
+                sender.sendMessage(Main.getString("message.giveall-success", true)
+                        .replace("%count%", String.valueOf(affectedRows))
+                        .replace("%amount%", String.valueOf(amount))
+                        .replace("%type%", currencyType));
+            });
+        });
+    }
+
+    private void resetAll(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nye.admin")) {
+            sender.sendMessage(Main.getString("message.no-has-permission", true));
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(Main.getString("message.fail-type", true));
+            return;
+        }
+
+        if (!instance.vaults.contains(args[1])) {
+            sender.sendMessage(Main.getString("message.fail-currency", true));
+            return;
+        }
+
+        String currencyType = args[1];
+
+        AyCore.getPlatformApi().runTaskAsynchronously(instance, () -> {
+            int affectedRows = AbstractStorgeHandler.getHandler().resetAll(currencyType);
+
+            AyCore.getPlatformApi().runTask(instance, () -> {
+                sender.sendMessage(Main.getString("message.resetall-success", true)
+                        .replace("%count%", String.valueOf(affectedRows))
+                        .replace("%type%", currencyType));
+            });
+        });
     }
 }

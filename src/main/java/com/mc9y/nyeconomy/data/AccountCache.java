@@ -1,73 +1,52 @@
 package com.mc9y.nyeconomy.data;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.mc9y.nyeconomy.Main;
-
-import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
-/**
- * @author Blank038
- * @since 2021-03-07
- */
 public class AccountCache {
-    public static final Map<String, AccountCache> CACHE_DATA = new HashMap<>();
+    public static final ConcurrentHashMap<UUID, AccountCache> CACHE_DATA = new ConcurrentHashMap<>();
+    
+    private static final ConcurrentHashMap<UUID, ReentrantLock> ACCOUNT_LOCKS = new ConcurrentHashMap<>();
 
-    private final Map<String, Integer> currencyMap = new HashMap<>();
+    private final ConcurrentHashMap<String, AtomicInteger> currencyMap = new ConcurrentHashMap<>();
 
-    public AccountCache(JsonObject jsonObject) {
-        this.update(jsonObject);
+    public AccountCache() {
     }
 
     public int balance(String type) {
-        return this.currencyMap.getOrDefault(Main.getNyEconomyAPI().checkVaultType(type), 0);
+        AtomicInteger balance = currencyMap.get(type);
+        return balance != null ? balance.get() : 0;
     }
 
-    public AccountCache set(String type, int amount) {
-        String lastType = Main.getNyEconomyAPI().checkVaultType(type);
-        if (this.currencyMap.containsKey(lastType)) {
-            this.currencyMap.replace(lastType, amount);
-        } else {
-            this.currencyMap.put(lastType, amount);
-        }
-        return this;
+    public void setBalance(String type, int amount) {
+        currencyMap.computeIfAbsent(type, k -> new AtomicInteger(0))
+                   .set(Math.max(0, amount));
     }
 
-    public JsonObject toJsonObject() {
-        JsonObject object = new JsonObject();
-        JsonArray array = new JsonArray();
-        for (Map.Entry<String, Integer> entry : this.currencyMap.entrySet()) {
-            JsonObject temp = new JsonObject();
-            temp.addProperty("type", entry.getKey());
-            temp.addProperty("count", entry.getValue());
-            array.add(temp);
-        }
-        object.add("currencys", array);
-        return object;
+    public int addBalance(String type, int amount) {
+        return currencyMap.computeIfAbsent(type, k -> new AtomicInteger(0))
+                          .addAndGet(amount);
     }
 
-    /**
-     * 刷新数据
-     *
-     * @param object 数据JsonObject对象
-     */
-    public void update(JsonObject object) {
-        if (object != null && object.has("currencys")) {
-            JsonArray array = object.getAsJsonArray("currencys");
-            for (int i = 0; i < array.size(); i++) {
-                JsonObject temp = array.get(i).getAsJsonObject();
-                if (temp == null || temp.isJsonNull() || temp.get("type").isJsonNull()) {
-                    continue;
-                }
-                String name = temp.get("type").getAsString();
-                int count = temp.get("count").getAsInt();
-                if (this.currencyMap.containsKey(name)) {
-                    this.currencyMap.replace(name, count);
-                } else {
-                    this.currencyMap.put(name, count);
-                }
-            }
-        }
+    public int subtractBalance(String type, int amount) {
+        AtomicInteger balance = currencyMap.computeIfAbsent(type, k -> new AtomicInteger(0));
+        int newValue;
+        int current;
+        do {
+            current = balance.get();
+            newValue = Math.max(0, current - amount);
+        } while (!balance.compareAndSet(current, newValue));
+        return newValue;
+    }
+
+    public Map<String, AtomicInteger> getCurrencyMap() {
+        return currencyMap;
+    }
+
+    public static ReentrantLock getAccountLock(UUID playerUUID) {
+        return ACCOUNT_LOCKS.computeIfAbsent(playerUUID, k -> new ReentrantLock());
     }
 }

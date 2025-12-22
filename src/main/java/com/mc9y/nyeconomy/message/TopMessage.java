@@ -18,24 +18,23 @@ public class TopMessage {
 
     public TopMessage(Map<Integer, AccountTopCache.Entry<String, Integer>> top, int page) {
         if (top.isEmpty()) {
-            this.messageList.add(Main.getString("Message.empty-data", true));
+            this.messageList.add(Main.getString("message.empty-data", true));
             return;
         }
         page -= 1;
-        this.messageList.add(Main.getInstance().getConfig().getString("Message.top.header"));
+        this.messageList.add(Main.getInstance().getConfig().getString("message.top.header"));
         int max = Main.getInstance().getConfig().getInt("cache-count");
-        // 开始下标
         int start = Math.min(page * 10, max), end = Math.min((page + 1) * 10, max);
         for (int i = start; i < end; i++) {
             if (i > top.size() || top.get(i) == null) {
-                this.messageList.add(Main.getString("Message.top.line")
+                this.messageList.add(Main.getString("message.top.line")
                         .replace("%top%", String.valueOf(i + 1))
-                        .replace("%name%", "无")
-                        .replace("%count%", "无"));
+                        .replace("%name%", Main.getInstance().getConfig().getString("placeholder.none", "无"))
+                        .replace("%count%", Main.getInstance().getConfig().getString("placeholder.none", "无")));
                 continue;
             }
             AccountTopCache.Entry<String, Integer> entry = top.get(i);
-            this.messageList.add(Main.getString("Message.top.line")
+            this.messageList.add(Main.getString("message.top.line")
                     .replace("%top%", String.valueOf(i + 1))
                     .replace("%name%", entry.getName())
                     .replace("%count%", String.valueOf(entry.getValue())));
