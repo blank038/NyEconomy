@@ -233,10 +233,9 @@ public class MigrationHandler {
         try (Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
             conn.setAutoCommit(false);
             
-            String playerSql = "INSERT OR IGNORE INTO nyeconomy_players (player_uuid, player_name, last_seen) VALUES (?, ?, ?)";
-            String balanceSql = "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
-                        "VALUES (?, ?, ?, ?) " +
-                        "ON CONFLICT(player_uuid, currency_type) DO UPDATE SET balance = ?, last_updated = ?";
+            String playerSql = "INSERT OR REPLACE INTO nyeconomy_players (player_uuid, player_name, last_seen) VALUES (?, ?, ?)";
+            String balanceSql = "INSERT OR REPLACE INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
+                        "VALUES (?, ?, ?, ?)";
             
             try (PreparedStatement playerPs = conn.prepareStatement(playerSql);
                  PreparedStatement balancePs = conn.prepareStatement(balanceSql)) {
@@ -261,8 +260,6 @@ public class MigrationHandler {
                             balancePs.setString(2, currencyType);
                             balancePs.setInt(3, balance);
                             balancePs.setLong(4, now);
-                            balancePs.setInt(5, balance);
-                            balancePs.setLong(6, now);
                             balancePs.addBatch();
                             
                             batchCount++;
