@@ -6,6 +6,7 @@ import com.mc9y.nyeconomy.api.NyEconomyAPI;
 import com.mc9y.nyeconomy.bridge.VaultBridge;
 import com.mc9y.nyeconomy.cache.StateCache;
 import com.mc9y.nyeconomy.command.NyeCommand;
+import com.mc9y.nyeconomy.cron.CronResetManager;
 import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
@@ -61,10 +62,12 @@ public class Main extends AyPlugin {
             new PlaceholderHook(this).register();
         }
         new TopCache();
+        CronResetManager.initialize();
     }
 
     @Override
     public void onDisable() {
+        CronResetManager.shutdown();
         if (AbstractStorgeHandler.getHandler() != null) {
             AbstractStorgeHandler.getHandler().save();
         }
@@ -96,6 +99,7 @@ public class Main extends AyPlugin {
         if (TopCache.getInstance() != null) {
             TopCache.getInstance().refreshTask();
         }
+        CronResetManager.reload();
         print(" ");
     }
 

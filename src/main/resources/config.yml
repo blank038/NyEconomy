@@ -117,3 +117,11 @@ message:
 command-delay: 1
 # 是否开启 debug
 debug: false
+# Cron 定时重置货币配置
+# 使用 Quartz cron 表达式 (秒 分 时 日 月 周 年)
+# 参考: https://www.quartz-scheduler.org/documentation/quartz-2.3.0/tutorials/crontrigger.html
+cron-reset: {}
+#  example:
+#    expression: "0 0 0 * * ? *"
+#    currencies:
+#      - "金币"

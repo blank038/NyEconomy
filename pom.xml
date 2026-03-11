@@ -57,6 +57,11 @@
             <version>1.4.2-BETA</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+            <version>2.3.2</version>
+        </dependency>
     </dependencies>
     <build>
         <resources>
@@ -65,5 +70,46 @@
                 <filtering>true</filtering>
             </resource>
         </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <artifactSet>
+                                <includes>
+                                    <include>org.quartz-scheduler:quartz</include>
+                                    <include>com.mchange:mchange-commons-java</include>
+                                </includes>
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.quartz</pattern>
+                                    <shadedPattern>com.mc9y.nyeconomy.libs.quartz</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.terracotta</pattern>
+                                    <shadedPattern>com.mc9y.nyeconomy.libs.terracotta</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <filters>
+                                <filter>
+                                    <artifact>org.quartz-scheduler:quartz</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/MANIFEST.MF</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 </project>
