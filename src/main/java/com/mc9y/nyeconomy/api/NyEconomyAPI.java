@@ -28,41 +28,75 @@ public class NyEconomyAPI {
         return type;
     }
 
-    // ========== Event-firing methods ==========
+    // ========== Event-firing methods (void for binary compat with v1.x) ==========
 
-    public boolean deposit(String type, String name, int amount) {
-        UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
-        return deposit(type, uuid, amount);
+    public void deposit(String type, String name, int amount) {
+        tryDeposit(type, name, amount);
     }
 
-    public boolean deposit(String type, UUID uuid, int amount) {
+    public void deposit(String type, UUID uuid, int amount) {
+        tryDeposit(type, uuid, amount);
+    }
+
+    public void withdraw(String type, String name, int amount) {
+        tryWithdraw(type, name, amount);
+    }
+
+    public void withdraw(String type, UUID uuid, int amount) {
+        tryWithdraw(type, uuid, amount);
+    }
+
+    public void set(String type, String name, int amount) {
+        trySet(type, name, amount);
+    }
+
+    public void set(String type, UUID uuid, int amount) {
+        trySet(type, uuid, amount);
+    }
+
+    public void reset(String type, String name) {
+        tryReset(type, name);
+    }
+
+    public void reset(String type, UUID uuid) {
+        tryReset(type, uuid);
+    }
+
+    // ========== Boolean-returning variants ==========
+
+    public boolean tryDeposit(String type, String name, int amount) {
+        UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
+        return tryDeposit(type, uuid, amount);
+    }
+
+    public boolean tryDeposit(String type, UUID uuid, int amount) {
         return performChange(uuid, type, EconomyAction.DEPOSIT, amount, false, false);
     }
 
-    public boolean withdraw(String type, String name, int amount) {
+    public boolean tryWithdraw(String type, String name, int amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
-        return withdraw(type, uuid, amount);
+        return tryWithdraw(type, uuid, amount);
     }
 
-    public boolean withdraw(String type, UUID uuid, int amount) {
+    public boolean tryWithdraw(String type, UUID uuid, int amount) {
         return performChange(uuid, type, EconomyAction.WITHDRAW, amount, false, false);
     }
 
-    public boolean set(String type, String name, int amount) {
+    public boolean trySet(String type, String name, int amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
-        return set(type, uuid, amount);
+        return trySet(type, uuid, amount);
     }
 
-    public boolean set(String type, UUID uuid, int amount) {
+    public boolean trySet(String type, UUID uuid, int amount) {
         return performChange(uuid, type, EconomyAction.SET, amount, false, false);
     }
 
-    public boolean reset(String type, String name) {
+    public boolean tryReset(String type, String name) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
-        return reset(type, uuid);
+        return tryReset(type, uuid);
     }
 
-    public boolean reset(String type, UUID uuid) {
+    public boolean tryReset(String type, UUID uuid) {
         return performChange(uuid, type, EconomyAction.RESET, 0, false, false);
     }
 
