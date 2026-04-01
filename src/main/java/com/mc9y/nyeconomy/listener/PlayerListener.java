@@ -26,6 +26,8 @@ public class PlayerListener implements Listener {
             
             if ("mysql".equalsIgnoreCase(Main.getInstance().getConfig().getString("data-option.type"))) {
                 AccountCache.CACHE_DATA.remove(uuid);
+                // 预加载玩家缓存数据，确保 PlaceholderAPI 变量正常显示
+                AbstractStorgeHandler.getHandler().getPlayerCache(uuid);
             }
         });
     }
