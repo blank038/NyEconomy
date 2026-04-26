@@ -15,8 +15,6 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.io.File;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -289,12 +287,6 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(Main.getString("message.currency-exists", true));
                 return;
             }
-            File f = new File(instance.getDataFolder() + "/Currencies/", args[1] + ".yml");
-            try {
-                f.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
             instance.vaults.add(args[1]);
             sender.sendMessage(Main.getString("message.currency-created", true).replace("%type%", args[1]));
         }
@@ -334,8 +326,6 @@ public class NyeCommand implements CommandExecutor {
                 return;
             }
             instance.vaults.remove(args[1]);
-            File f1 = new File(instance.getDataFolder() + "/Currencies/", args[1] + ".yml");
-            f1.delete();
             List<String> removes = new ArrayList<>();
             for (String key : Commodity.COMMODITY_MAP.keySet()) {
                 if (Commodity.COMMODITY_MAP.get(key).getType().equals(args[1])) {

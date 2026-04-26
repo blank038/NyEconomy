@@ -40,6 +40,14 @@ public class Main extends AyPlugin {
         return this.debug;
     }
 
+    private String getStorageType() {
+        return this.getConfig().getString("data-option.type", "sqlite").trim();
+    }
+
+    public boolean isMySqlMode() {
+        return "mysql".equalsIgnoreCase(this.getStorageType());
+    }
+
     @Override
     public void onEnable() {
         instance = this;
@@ -48,8 +56,7 @@ public class Main extends AyPlugin {
         this.getConsoleLogger().setPrefix("");
         this.loadConfig();
         
-        String storageType = this.getConfig().getString("data-option.type", "sqlite").toLowerCase();
-        if ("mysql".equals(storageType)) {
+        if (this.isMySqlMode()) {
             AbstractStorgeHandler.setHandler(MySqlStorgeHandler.class);
         } else {
             AbstractStorgeHandler.setHandler(SqliteStorageHandler.class);
@@ -104,8 +111,6 @@ public class Main extends AyPlugin {
     }
 
     private void loadCurrencies() {
-        File currencies = new File(getDataFolder(), "Currencies");
-        currencies.mkdir();
         vaults.clear();
 
         List<String> enabled = getConfig().getStringList("enable");
@@ -115,10 +120,8 @@ public class Main extends AyPlugin {
         }
         this.print("&6 * &fCurrencies:");
         for (String i : enabled) {
-            File cf = new File(currencies, i + ".yml");
-            boolean success = cf.exists() || i.equals(getConfig().getString("economy-bridge.currency"));
-            if (success) this.vaults.add(i);
-            this.print("&e   + &f" + i + ": " + (success ? "&aON" : "&cOFF"));
+            this.vaults.add(i);
+            this.print("&e   + &f" + i + ": &aON");
         }
     }
 
