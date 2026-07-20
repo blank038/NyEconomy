@@ -11,7 +11,7 @@ import java.util.Map;
 public class TopCache {
     private static TopCache topCache;
 
-    private final Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
+    private final Map<String, Map<Integer, AccountTopCache.Entry<String, Double>>> topData = new HashMap<>();
     private ITaskWrapper task;
     private boolean enableTop;
 
@@ -59,24 +59,24 @@ public class TopCache {
         }
     }
 
-    public Map<Integer, AccountTopCache.Entry<String, Integer>> getTopData(String currency) {
+    public Map<Integer, AccountTopCache.Entry<String, Double>> getTopData(String currency) {
         return this.topData.getOrDefault(currency, new HashMap<>(0));
     }
 
-    private Map<Integer, AccountTopCache.Entry<String, Integer>> calc(String currency, Map<String, AccountTopCache> cacheData) {
+    private Map<Integer, AccountTopCache.Entry<String, Double>> calc(String currency, Map<String, AccountTopCache> cacheData) {
         final int count = Main.getInstance().getConfig().getInt("cache-count");
-        Map<Integer, AccountTopCache.Entry<String, Integer>> result = new HashMap<>(count);
-        Map<String, Integer> tempData = new HashMap<>(cacheData.size());
+        Map<Integer, AccountTopCache.Entry<String, Double>> result = new HashMap<>(count);
+        Map<String, Double> tempData = new HashMap<>(cacheData.size());
         for (Map.Entry<String, AccountTopCache> entry : cacheData.entrySet()) {
             tempData.put(entry.getKey(), entry.getValue().getCurrencyCount(currency));
         }
         String[] names = tempData.keySet().toArray(new String[0]);
-        Integer[] counts = tempData.values().toArray(new Integer[0]);
+        Double[] counts = tempData.values().toArray(new Double[0]);
         for (int i = 0; i < names.length - 1; i++) {
             for (int x = i + 1; x < names.length; x++) {
                 if (counts[i] < counts[x]) {
                     String tmp = names[i];
-                    Integer tmp1 = counts[i];
+                    Double tmp1 = counts[i];
                     counts[i] = counts[x];
                     names[i] = names[x];
                     names[x] = tmp;

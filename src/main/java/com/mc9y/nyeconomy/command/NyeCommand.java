@@ -9,6 +9,7 @@ import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.message.TopMessage;
 import com.mc9y.nyeconomy.migration.MigrationHandler;
 import com.mc9y.nyeconomy.service.UUIDService;
+import com.mc9y.nyeconomy.util.MoneyFormatter;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -113,7 +114,7 @@ public class NyeCommand implements CommandExecutor {
             }
             sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
             for (String v : instance.vaults) {
-                sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, player.getName()));
+                sender.sendMessage(" §a> §f" + v + ": §7" + MoneyFormatter.format(Main.getNyEconomyAPI().getBalance(v, player.getName())));
             }
         }
     }
@@ -130,27 +131,32 @@ public class NyeCommand implements CommandExecutor {
             }
             UUID playerUUID = UUIDService.getInstance().getPlayerUUID(args[1]);
             
-            int amount;
+            double amount;
             try {
-                amount = Integer.parseInt(args[3]);
+                amount = Double.parseDouble(args[3]);
             } catch (Exception e) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
+            if (isInvalidAmount(amount)) {
+                sender.sendMessage(Main.getString("message.fail-amount", true));
+                return;
+            }
+            String formattedAmount = MoneyFormatter.format(amount);
             switch (type) {
                 case 0:
                     Main.getNyEconomyAPI().deposit(args[2], playerUUID, amount);
                     sender.sendMessage(Main.getString("message.give", true)
                             .replace("&", "§")
                             .replace("%type%", args[2])
-                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%amount%", formattedAmount)
                             .replace("%player%", args[1]));
                     if (args.length > 4 && "true".equalsIgnoreCase(args[4])) {
                         Player target = Bukkit.getPlayerExact(args[1]);
                         if (target != null && target.isOnline()) {
                             target.sendMessage(Main.getString("message.receive", true)
                                     .replace("%type%", args[2])
-                                    .replace("%amount%", String.valueOf(amount))
+                                    .replace("%amount%", formattedAmount)
                                     .replace("%sender%", sender.getName())
                                     .replace("%player%", args[1]));
                         }
@@ -160,15 +166,15 @@ public class NyeCommand implements CommandExecutor {
                     Main.getNyEconomyAPI().withdraw(args[2], playerUUID, amount);
                     sender.sendMessage(Main.getString("message.take", true)
                             .replace("%type%", args[2])
-                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%amount%", formattedAmount)
                             .replace("%player%", args[1])
-                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], playerUUID))));
+                            .replace("%last%", MoneyFormatter.format(Main.getNyEconomyAPI().getBalance(args[2], playerUUID))));
                     break;
                 case 2:
                     Main.getNyEconomyAPI().set(args[2], playerUUID, amount);
                     sender.sendMessage(Main.getString("message.set", true)
                             .replace("%type%", args[2])
-                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%amount%", formattedAmount)
                             .replace("%player%", args[1]));
                     break;
                 default:
@@ -194,7 +200,7 @@ public class NyeCommand implements CommandExecutor {
             }
             sender.sendMessage("§f" + args[1] + " 的个人经济情况;");
             for (String v : instance.vaults) {
-                sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, args[1]));
+                sender.sendMessage(" §a> §f" + v + ": §7" + MoneyFormatter.format(Main.getNyEconomyAPI().getBalance(v, args[1])));
             }
         } else {
             sender.sendMessage(Main.getString("message.no-has-permission", true));
@@ -218,7 +224,7 @@ public class NyeCommand implements CommandExecutor {
             Commodity commodity = Commodity.COMMODITY_MAP.get(args[1]);
             if (Main.getNyEconomyAPI().getBalance(commodity.getType(), player.getName()) < commodity.getAmount()) {
                 player.sendMessage(Main.getString("message.lack-currency", true)
-                        .replace("%type%", commodity.getType()).replace("%amount%", commodity.getAmount() + ""));
+                        .replace("%type%", commodity.getType()).replace("%amount%", MoneyFormatter.format(commodity.getAmount())));
                 return;
             }
             PlayerBuyCommodityEvent event = new PlayerBuyCommodityEvent(player, commodity, commodity.getAmount());
@@ -245,14 +251,14 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(Main.getString("message.pay-cancelled", true));
                 return;
             }
-            int amount;
+            double amount;
             try {
-                amount = Integer.parseInt(args[3]);
+                amount = Double.parseDouble(args[3]);
             } catch (Exception e) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
-            if (amount <= 0) {
+            if (amount <= 0.0D || Double.isNaN(amount) || Double.isInfinite(amount)) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
@@ -267,7 +273,7 @@ public class NyeCommand implements CommandExecutor {
             Main.getNyEconomyAPI().withdraw(args[2], sender.getName(), amount);
             Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
             sender.sendMessage(Main.getString("message.pay", true)
-                    .replace("%type%", args[2]).replace("%amount%", amount + "")
+                    .replace("%type%", args[2]).replace("%amount%", MoneyFormatter.format(amount))
                     .replace("%player%", args[1]));
         } else {
             sender.sendMessage(Main.getString("message.no-has-permission", true));
@@ -528,10 +534,14 @@ public class NyeCommand implements CommandExecutor {
             return;
         }
 
-        int amount;
+        double amount;
         try {
-            amount = Integer.parseInt(args[2]);
+            amount = Double.parseDouble(args[2]);
         } catch (Exception e) {
+            sender.sendMessage(Main.getString("message.fail-amount", true));
+            return;
+        }
+        if (isInvalidAmount(amount)) {
             sender.sendMessage(Main.getString("message.fail-amount", true));
             return;
         }
@@ -544,7 +554,7 @@ public class NyeCommand implements CommandExecutor {
             AyCore.getPlatformApi().runTask(instance, () -> {
                 sender.sendMessage(Main.getString("message.giveall-success", true)
                         .replace("%count%", String.valueOf(affectedRows))
-                        .replace("%amount%", String.valueOf(amount))
+                        .replace("%amount%", MoneyFormatter.format(amount))
                         .replace("%type%", currencyType));
             });
         });
@@ -577,5 +587,9 @@ public class NyeCommand implements CommandExecutor {
                         .replace("%type%", currencyType));
             });
         });
+    }
+
+    private boolean isInvalidAmount(double amount) {
+        return amount < 0.0D || Double.isNaN(amount) || Double.isInfinite(amount);
     }
 }

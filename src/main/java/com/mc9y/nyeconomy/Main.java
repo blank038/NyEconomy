@@ -135,7 +135,7 @@ public class Main extends AyPlugin {
         int fails = 0;
         for (String key : data.getKeys(false)) {
             if (vaults.contains(data.getString(key + ".type"))) {
-                Commodity commodity = new Commodity(data.getString(key + ".type"), data.getInt(key + ".amount"),
+                Commodity commodity = new Commodity(data.getString(key + ".type"), data.getDouble(key + ".amount"),
                         data.getStringList(key + ".commands"), data.getString(key + ".name"));
                 Commodity.COMMODITY_MAP.put(key, commodity);
             } else {

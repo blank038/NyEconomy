@@ -8,13 +8,13 @@ import java.util.Map;
  * @since 2021-03-11
  */
 public class AccountTopCache {
-    private final Map<String, Integer> tempMap = new HashMap<>();
+    private final Map<String, Double> tempMap = new HashMap<>();
 
-    public int getCurrencyCount(String key) {
-        return this.tempMap.getOrDefault(key, 0);
+    public double getCurrencyCount(String key) {
+        return this.tempMap.getOrDefault(key, 0.0D);
     }
 
-    public Map<String, Integer> getTempMap() {
+    public Map<String, Double> getTempMap() {
         return tempMap;
     }
 

@@ -13,13 +13,18 @@ public class PlayerEconomyChangeEvent extends Event implements Cancellable {
     private final UUID playerUuid;
     private final String currencyType;
     private final EconomyAction action;
-    private final int oldBalance;
+    private final double oldBalance;
     private final boolean fromVault;
-    private int amount;
+    private double amount;
     private boolean cancelled;
 
     public PlayerEconomyChangeEvent(UUID playerUuid, String currencyType, EconomyAction action,
                                     int amount, int oldBalance, boolean fromVault) {
+        this(playerUuid, currencyType, action, (double) amount, (double) oldBalance, fromVault);
+    }
+
+    public PlayerEconomyChangeEvent(UUID playerUuid, String currencyType, EconomyAction action,
+                                    double amount, double oldBalance, boolean fromVault) {
         super(!Bukkit.isPrimaryThread());
         this.playerUuid = playerUuid;
         this.currencyType = currencyType;
@@ -41,15 +46,19 @@ public class PlayerEconomyChangeEvent extends Event implements Cancellable {
         return action;
     }
 
-    public int getAmount() {
+    public double getAmount() {
         return amount;
+    }
+
+    public void setAmount(double amount) {
+        this.amount = amount;
     }
 
     public void setAmount(int amount) {
         this.amount = amount;
     }
 
-    public int getOldBalance() {
+    public double getOldBalance() {
         return oldBalance;
     }
 

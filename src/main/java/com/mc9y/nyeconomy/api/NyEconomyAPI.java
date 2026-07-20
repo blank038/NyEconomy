@@ -11,13 +11,29 @@ import java.util.UUID;
 
 public class NyEconomyAPI {
 
-    public int getBalance(String type, String name) {
+    public double getBalance(String type, String name) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         return getBalance(type, uuid);
     }
 
-    public int getBalance(String type, UUID uuid) {
+    public double getBalance(String type, UUID uuid) {
         return AbstractStorgeHandler.getHandler().balance(uuid, type, 2);
+    }
+
+    public long getBalanceFloor(String type, String name) {
+        return (long) Math.floor(getBalance(type, name));
+    }
+
+    public long getBalanceFloor(String type, UUID uuid) {
+        return (long) Math.floor(getBalance(type, uuid));
+    }
+
+    public int getBalanceInt(String type, String name) {
+        return (int) getBalanceFloor(type, name);
+    }
+
+    public int getBalanceInt(String type, UUID uuid) {
+        return (int) getBalanceFloor(type, uuid);
     }
 
     public String checkVaultType(String type) {
@@ -34,7 +50,15 @@ public class NyEconomyAPI {
         tryDeposit(type, name, amount);
     }
 
+    public void deposit(String type, String name, double amount) {
+        tryDeposit(type, name, amount);
+    }
+
     public void deposit(String type, UUID uuid, int amount) {
+        tryDeposit(type, uuid, amount);
+    }
+
+    public void deposit(String type, UUID uuid, double amount) {
         tryDeposit(type, uuid, amount);
     }
 
@@ -42,7 +66,15 @@ public class NyEconomyAPI {
         tryWithdraw(type, name, amount);
     }
 
+    public void withdraw(String type, String name, double amount) {
+        tryWithdraw(type, name, amount);
+    }
+
     public void withdraw(String type, UUID uuid, int amount) {
+        tryWithdraw(type, uuid, amount);
+    }
+
+    public void withdraw(String type, UUID uuid, double amount) {
         tryWithdraw(type, uuid, amount);
     }
 
@@ -50,7 +82,15 @@ public class NyEconomyAPI {
         trySet(type, name, amount);
     }
 
+    public void set(String type, String name, double amount) {
+        trySet(type, name, amount);
+    }
+
     public void set(String type, UUID uuid, int amount) {
+        trySet(type, uuid, amount);
+    }
+
+    public void set(String type, UUID uuid, double amount) {
         trySet(type, uuid, amount);
     }
 
@@ -65,29 +105,53 @@ public class NyEconomyAPI {
     // ========== Boolean-returning variants ==========
 
     public boolean tryDeposit(String type, String name, int amount) {
+        return tryDeposit(type, name, (double) amount);
+    }
+
+    public boolean tryDeposit(String type, String name, double amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         return tryDeposit(type, uuid, amount);
     }
 
     public boolean tryDeposit(String type, UUID uuid, int amount) {
+        return tryDeposit(type, uuid, (double) amount);
+    }
+
+    public boolean tryDeposit(String type, UUID uuid, double amount) {
         return performChange(uuid, type, EconomyAction.DEPOSIT, amount, false, false);
     }
 
     public boolean tryWithdraw(String type, String name, int amount) {
+        return tryWithdraw(type, name, (double) amount);
+    }
+
+    public boolean tryWithdraw(String type, String name, double amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         return tryWithdraw(type, uuid, amount);
     }
 
     public boolean tryWithdraw(String type, UUID uuid, int amount) {
+        return tryWithdraw(type, uuid, (double) amount);
+    }
+
+    public boolean tryWithdraw(String type, UUID uuid, double amount) {
         return performChange(uuid, type, EconomyAction.WITHDRAW, amount, false, false);
     }
 
     public boolean trySet(String type, String name, int amount) {
+        return trySet(type, name, (double) amount);
+    }
+
+    public boolean trySet(String type, String name, double amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         return trySet(type, uuid, amount);
     }
 
     public boolean trySet(String type, UUID uuid, int amount) {
+        return trySet(type, uuid, (double) amount);
+    }
+
+    public boolean trySet(String type, UUID uuid, double amount) {
         return performChange(uuid, type, EconomyAction.SET, amount, false, false);
     }
 
@@ -103,29 +167,53 @@ public class NyEconomyAPI {
     // ========== Silent methods (no events) ==========
 
     public void depositSilent(String type, String name, int amount) {
+        depositSilent(type, name, (double) amount);
+    }
+
+    public void depositSilent(String type, String name, double amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         depositSilent(type, uuid, amount);
     }
 
     public void depositSilent(String type, UUID uuid, int amount) {
+        depositSilent(type, uuid, (double) amount);
+    }
+
+    public void depositSilent(String type, UUID uuid, double amount) {
         AbstractStorgeHandler.getHandler().deposit(uuid, type, amount);
     }
 
     public void withdrawSilent(String type, String name, int amount) {
+        withdrawSilent(type, name, (double) amount);
+    }
+
+    public void withdrawSilent(String type, String name, double amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         withdrawSilent(type, uuid, amount);
     }
 
     public void withdrawSilent(String type, UUID uuid, int amount) {
+        withdrawSilent(type, uuid, (double) amount);
+    }
+
+    public void withdrawSilent(String type, UUID uuid, double amount) {
         AbstractStorgeHandler.getHandler().withdraw(uuid, type, amount);
     }
 
     public void setSilent(String type, String name, int amount) {
+        setSilent(type, name, (double) amount);
+    }
+
+    public void setSilent(String type, String name, double amount) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
         setSilent(type, uuid, amount);
     }
 
     public void setSilent(String type, UUID uuid, int amount) {
+        setSilent(type, uuid, (double) amount);
+    }
+
+    public void setSilent(String type, UUID uuid, double amount) {
         AbstractStorgeHandler.getHandler().set(uuid, type, amount);
     }
 
@@ -151,15 +239,18 @@ public class NyEconomyAPI {
      * @param fromVault if true, the change originated from the Vault bridge
      * @return true if the operation succeeded, false if cancelled or failed
      */
-    public boolean performChange(UUID uuid, String type, EconomyAction action, int amount, boolean silent, boolean fromVault) {
+    public boolean performChange(UUID uuid, String type, EconomyAction action, double amount, boolean silent, boolean fromVault) {
         if (!silent) {
-            int oldBalance = AbstractStorgeHandler.getHandler().balance(uuid, type, 2);
+            double oldBalance = AbstractStorgeHandler.getHandler().balance(uuid, type, 2);
             PlayerEconomyChangeEvent event = new PlayerEconomyChangeEvent(uuid, type, action, amount, oldBalance, fromVault);
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
                 return false;
             }
             amount = event.getAmount();
+        }
+        if (amount < 0.0D || Double.isNaN(amount) || Double.isInfinite(amount)) {
+            return false;
         }
 
         switch (action) {

@@ -13,11 +13,15 @@ public class Commodity {
     public static final Map<String, Commodity> COMMODITY_MAP = new HashMap<>();
 
     private final String economyType;
-    private final int amount;
+    private final double amount;
     private final List<String> commands;
     private final String displayName;
 
     public Commodity(String type, int amount, List<String> commands, String name) {
+        this(type, (double) amount, commands, name);
+    }
+
+    public Commodity(String type, double amount, List<String> commands, String name) {
         this.economyType = type;
         this.amount = amount;
         this.commands = commands;
@@ -28,7 +32,7 @@ public class Commodity {
         return economyType;
     }
 
-    public int getAmount() {
+    public double getAmount() {
         return amount;
     }
 

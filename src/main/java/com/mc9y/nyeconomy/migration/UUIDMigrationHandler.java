@@ -125,7 +125,7 @@ public class UUIDMigrationHandler {
                 String playerName = rs.getString("player_name");
                 playerBalances.computeIfAbsent(playerName, k -> new ArrayList<>()).add(new BalanceRecord(
                     rs.getString("currency_type"),
-                    rs.getInt("balance"),
+                    rs.getDouble("balance"),
                     rs.getLong("last_updated")
                 ));
             }
@@ -147,7 +147,7 @@ public class UUIDMigrationHandler {
                             "ON DUPLICATE KEY UPDATE balance = VALUES(balance), last_updated = VALUES(last_updated)")) {
                         ps.setString(1, uuid.toString());
                         ps.setString(2, record.currencyType);
-                        ps.setInt(3, record.balance);
+                        ps.setDouble(3, record.balance);
                         ps.setLong(4, record.lastUpdated);
                         ps.executeUpdate();
                     }
@@ -158,7 +158,7 @@ public class UUIDMigrationHandler {
                             "  SELECT 1 FROM nyeconomy_balances WHERE player_uuid = ? AND currency_type = ?)")) {
                         ps.setString(1, uuid.toString());
                         ps.setString(2, record.currencyType);
-                        ps.setInt(3, record.balance);
+                        ps.setDouble(3, record.balance);
                         ps.setLong(4, record.lastUpdated);
                         ps.setString(5, uuid.toString());
                         ps.setString(6, record.currencyType);
@@ -171,10 +171,10 @@ public class UUIDMigrationHandler {
     
     private static class BalanceRecord {
         String currencyType;
-        int balance;
+        double balance;
         long lastUpdated;
         
-        BalanceRecord(String currencyType, int balance, long lastUpdated) {
+        BalanceRecord(String currencyType, double balance, long lastUpdated) {
             this.currencyType = currencyType;
             this.balance = balance;
             this.lastUpdated = lastUpdated;

@@ -25,7 +25,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                     "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
                     "player_uuid VARCHAR(36) NOT NULL," +
                     "currency_type VARCHAR(50) NOT NULL," +
-                    "balance INTEGER NOT NULL DEFAULT 0," +
+                    "balance DOUBLE NOT NULL DEFAULT 0," +
                     "last_updated BIGINT NOT NULL," +
                     "UNIQUE KEY uk_player_currency (player_uuid, currency_type)," +
                     "INDEX idx_player_uuid (player_uuid)," +
@@ -69,6 +69,15 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 }
             }, sql);
         }
+        this.DATA_SOURCE.connect((connection, statement) -> {
+            try {
+                statement.executeUpdate();
+            } catch (SQLException e) {
+                Main.getInstance().getLogger().log(Level.WARNING, "更新余额字段为小数类型失败", e);
+            } finally {
+                this.DATA_SOURCE.close(statement, null);
+            }
+        }, "ALTER TABLE nyeconomy_balances MODIFY balance DOUBLE NOT NULL DEFAULT 0");
     }
 
     @Override
@@ -142,7 +151,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public int balance(UUID uuid, String type, int status) {
+    public double balance(UUID uuid, String type, int status) {
         if (status == 1) {
             return 0;
         }
@@ -163,8 +172,8 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public boolean deposit(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+    public boolean deposit(UUID uuid, String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return false;
         }
 
@@ -176,9 +185,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 long now = System.currentTimeMillis();
                 statement.setString(1, uuid.toString());
                 statement.setString(2, currencyType);
-                statement.setInt(3, amount);
+                statement.setDouble(3, amount);
                 statement.setLong(4, now);
-                statement.setInt(5, amount);
+                statement.setDouble(5, amount);
                 statement.setLong(6, now);
                 
                 int rows = statement.executeUpdate();
@@ -203,8 +212,8 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public boolean withdraw(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+    public boolean withdraw(UUID uuid, String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return false;
         }
 
@@ -214,11 +223,11 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         this.DATA_SOURCE.connect((connection, statement) -> {
             try {
                 long now = System.currentTimeMillis();
-                statement.setInt(1, amount);
+                statement.setDouble(1, amount);
                 statement.setLong(2, now);
                 statement.setString(3, uuid.toString());
                 statement.setString(4, currencyType);
-                statement.setInt(5, amount);
+                statement.setDouble(5, amount);
                 
                 int rows = statement.executeUpdate();
                 success.set(rows > 0);
@@ -242,8 +251,8 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public boolean set(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+    public boolean set(UUID uuid, String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return false;
         }
 
@@ -255,9 +264,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 long now = System.currentTimeMillis();
                 statement.setString(1, uuid.toString());
                 statement.setString(2, currencyType);
-                statement.setInt(3, amount);
+                statement.setDouble(3, amount);
                 statement.setLong(4, now);
-                statement.setInt(5, amount);
+                statement.setDouble(5, amount);
                 statement.setLong(6, now);
                 
                 int rows = statement.executeUpdate();
@@ -369,7 +378,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                     while (resultSet.next()) {
                         topCache.getTempMap().put(
                                 resultSet.getString("currency_type"),
-                                resultSet.getInt("balance")
+                                resultSet.getDouble("balance")
                         );
                     }
                 } catch (SQLException throwables) {
@@ -400,7 +409,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                 resultSet = statement.executeQuery();
                 while (resultSet.next()) {
                     String currencyType = resultSet.getString("currency_type");
-                    int balance = resultSet.getInt("balance");
+                    double balance = resultSet.getDouble("balance");
                     newCache.setBalance(currencyType, balance);
                 }
             } catch (SQLException throwables) {
@@ -422,16 +431,16 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         return getPlayerCache(uuid);
     }
 
-    private boolean updateBalance(UUID playerUuid, String currencyType, int balance) {
+    private boolean updateBalance(UUID playerUuid, String currencyType, double balance) {
         AtomicBoolean success = new AtomicBoolean(false);
         this.DATA_SOURCE.connect((connection, statement) -> {
             try {
                 long now = System.currentTimeMillis();
                 statement.setString(1, playerUuid.toString());
                 statement.setString(2, currencyType);
-                statement.setInt(3, balance);
+                statement.setDouble(3, balance);
                 statement.setLong(4, now);
-                statement.setInt(5, balance);
+                statement.setDouble(5, balance);
                 statement.setLong(6, now);
 
                 statement.executeUpdate();
@@ -448,8 +457,8 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public int depositAll(String type, int amount) {
-        if (amount < 0) {
+    public int depositAll(String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return 0;
         }
 
@@ -459,9 +468,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         this.DATA_SOURCE.connect((connection, statement) -> {
             try {
                 long now = System.currentTimeMillis();
-                statement.setString(1, currencyType);
-                statement.setInt(2, amount);
-                statement.setLong(3, now);
+                statement.setDouble(1, amount);
+                statement.setLong(2, now);
+                statement.setString(3, currencyType);
                 
                 affectedRows[0] = statement.executeUpdate();
                 
@@ -502,5 +511,9 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         }, "UPDATE nyeconomy_balances SET balance = 0, last_updated = ? WHERE currency_type = ?");
         
         return affectedRows[0];
+    }
+
+    private boolean isInvalidAmount(double amount) {
+        return amount < 0.0D || Double.isNaN(amount) || Double.isInfinite(amount);
     }
 }

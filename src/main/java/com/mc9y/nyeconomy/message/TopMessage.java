@@ -2,6 +2,7 @@ package com.mc9y.nyeconomy.message;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountTopCache;
+import com.mc9y.nyeconomy.util.MoneyFormatter;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 
@@ -16,7 +17,7 @@ import java.util.Map;
 public class TopMessage {
     private final List<String> messageList = new ArrayList<>();
 
-    public TopMessage(Map<Integer, AccountTopCache.Entry<String, Integer>> top, int page) {
+    public TopMessage(Map<Integer, AccountTopCache.Entry<String, Double>> top, int page) {
         if (top.isEmpty()) {
             this.messageList.add(Main.getString("message.empty-data", true));
             return;
@@ -33,11 +34,11 @@ public class TopMessage {
                         .replace("%count%", Main.getInstance().getConfig().getString("placeholder.none", "无")));
                 continue;
             }
-            AccountTopCache.Entry<String, Integer> entry = top.get(i);
+            AccountTopCache.Entry<String, Double> entry = top.get(i);
             this.messageList.add(Main.getString("message.top.line")
                     .replace("%top%", String.valueOf(i + 1))
                     .replace("%name%", entry.getName())
-                    .replace("%count%", String.valueOf(entry.getValue())));
+                    .replace("%count%", MoneyFormatter.format(entry.getValue())));
         }
     }
 

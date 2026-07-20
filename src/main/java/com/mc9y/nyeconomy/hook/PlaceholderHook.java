@@ -4,6 +4,7 @@ import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.AccountTopCache;
 import com.mc9y.nyeconomy.data.TopCache;
+import com.mc9y.nyeconomy.util.MoneyFormatter;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.entity.Player;
 
@@ -21,13 +22,24 @@ public class PlaceholderHook extends PlaceholderExpansion {
         this.plugin = main;
         this.placeholderConsumerMap.put("top@name", (player, currency, params) -> {
             int index = Integer.parseInt(params[2]);
-            AccountTopCache.Entry<String, Integer> entry = TopCache.getInstance().getTopData(currency).get(index);
+            AccountTopCache.Entry<String, Double> entry = TopCache.getInstance().getTopData(currency).get(index);
             return entry == null ? Main.getString("placeholder.none") : entry.getName();
         });
         this.placeholderConsumerMap.put("top@count", (player, currency, params) -> {
             int index = Integer.parseInt(params[2]);
-            AccountTopCache.Entry<String, Integer> entry = TopCache.getInstance().getTopData(currency).get(index);
-            return entry == null ? Main.getString("placeholder.none") : String.valueOf(entry.getValue());
+            AccountTopCache.Entry<String, Double> entry = TopCache.getInstance().getTopData(currency).get(index);
+            return entry == null ? Main.getString("placeholder.none") : MoneyFormatter.format(entry.getValue());
+        });
+        this.placeholderConsumerMap.put("top@floor", (player, currency, params) -> {
+            int index = Integer.parseInt(params[2]);
+            AccountTopCache.Entry<String, Double> entry = TopCache.getInstance().getTopData(currency).get(index);
+            return entry == null ? Main.getString("placeholder.none") : MoneyFormatter.formatFloor(entry.getValue());
+        });
+        this.placeholderConsumerMap.put("floor", (player, currency, params) -> {
+            if (AccountCache.CACHE_DATA.containsKey(player.getUniqueId())) {
+                return MoneyFormatter.formatFloor(AccountCache.CACHE_DATA.get(player.getUniqueId()).balance(currency));
+            }
+            return MoneyFormatter.formatFloor(Main.getNyEconomyAPI().getBalance(currency, player.getName()));
         });
     }
 
@@ -45,11 +57,11 @@ public class PlaceholderHook extends PlaceholderExpansion {
         String currency = this.formatVariable(s);
         if ("mysql".equalsIgnoreCase(plugin.getConfig().getString("data-option.type"))) {
             if (AccountCache.CACHE_DATA.containsKey(player.getUniqueId())) {
-                return String.valueOf(AccountCache.CACHE_DATA.get(player.getUniqueId()).balance(currency));
+                return MoneyFormatter.format(AccountCache.CACHE_DATA.get(player.getUniqueId()).balance(currency));
             }
-            return "0";
+            return MoneyFormatter.format(0.0D);
         } else if (Main.getInstance().vaults.contains(s)) {
-            return String.valueOf(Main.getNyEconomyAPI().getBalance(currency, player.getName()));
+            return MoneyFormatter.format(Main.getNyEconomyAPI().getBalance(currency, player.getName()));
         }
         return "";
     }

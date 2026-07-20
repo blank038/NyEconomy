@@ -8,13 +8,13 @@ import java.util.UUID;
 public abstract class AbstractStorgeHandler {
     private static AbstractStorgeHandler INSTANCE;
 
-    public abstract int balance(UUID uuid, String type, int status);
+    public abstract double balance(UUID uuid, String type, int status);
 
-    public abstract boolean deposit(UUID uuid, String type, int amount);
+    public abstract boolean deposit(UUID uuid, String type, double amount);
 
-    public abstract boolean withdraw(UUID uuid, String type, int amount);
+    public abstract boolean withdraw(UUID uuid, String type, double amount);
 
-    public abstract boolean set(UUID uuid, String type, int amount);
+    public abstract boolean set(UUID uuid, String type, double amount);
 
     public abstract void save();
 
@@ -26,7 +26,7 @@ public abstract class AbstractStorgeHandler {
 
     public abstract String queryPlayerName(UUID uuid);
 
-    public abstract int depositAll(String type, int amount);
+    public abstract int depositAll(String type, double amount);
 
     public abstract int resetAll(String type);
 

@@ -43,7 +43,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
                         "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                         "player_uuid VARCHAR(36) NOT NULL," +
                         "currency_type VARCHAR(50) NOT NULL," +
-                        "balance INTEGER NOT NULL DEFAULT 0," +
+                        "balance DOUBLE NOT NULL DEFAULT 0," +
                         "last_updated BIGINT NOT NULL," +
                         "UNIQUE(player_uuid, currency_type))");
             
@@ -134,7 +134,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public int balance(UUID uuid, String type, int status) {
+    public double balance(UUID uuid, String type, int status) {
         if (status == 1) {
             return 0;
         }
@@ -155,8 +155,8 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public boolean deposit(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+    public boolean deposit(UUID uuid, String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return false;
         }
         
@@ -165,7 +165,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
         lock.lock();
         try {
             AccountCache cache = getOrCreateCache(uuid);
-            int newBalance = cache.addBalance(type, amount);
+            double newBalance = cache.addBalance(type, amount);
             return updateBalance(uuid, type, newBalance);
         } finally {
             lock.unlock();
@@ -173,8 +173,8 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public boolean withdraw(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+    public boolean withdraw(UUID uuid, String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return false;
         }
         
@@ -183,13 +183,13 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
         lock.lock();
         try {
             AccountCache cache = getOrCreateCache(uuid);
-            int currentBalance = cache.balance(type);
+            double currentBalance = cache.balance(type);
             
             if (currentBalance < amount) {
                 return false;
             }
             
-            int newBalance = cache.subtractBalance(type, amount);
+            double newBalance = cache.subtractBalance(type, amount);
             return updateBalance(uuid, type, newBalance);
         } finally {
             lock.unlock();
@@ -197,8 +197,8 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public boolean set(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+    public boolean set(UUID uuid, String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return false;
         }
         
@@ -249,7 +249,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
                             while (balanceRs.next()) {
                                 topCache.getTempMap().put(
                                     balanceRs.getString("currency_type"),
-                                    balanceRs.getInt("balance")
+                                    balanceRs.getDouble("balance")
                                 );
                             }
                         }
@@ -307,7 +307,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String currencyType = rs.getString("currency_type");
-                    int balance = rs.getInt("balance");
+                    double balance = rs.getDouble("balance");
                     cache.setBalance(currencyType, balance);
                 }
             }
@@ -317,7 +317,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
         return cache;
     }
 
-    private boolean updateBalance(UUID playerUuid, String currencyType, int balance) {
+    private boolean updateBalance(UUID playerUuid, String currencyType, double balance) {
         long now = System.currentTimeMillis();
         
         try {
@@ -334,7 +334,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
                 if (exists) {
                     try (PreparedStatement updatePs = connection.prepareStatement(
                             "UPDATE nyeconomy_balances SET balance = ?, last_updated = ? WHERE player_uuid = ? AND currency_type = ?")) {
-                        updatePs.setInt(1, balance);
+                        updatePs.setDouble(1, balance);
                         updatePs.setLong(2, now);
                         updatePs.setString(3, playerUuid.toString());
                         updatePs.setString(4, currencyType);
@@ -345,7 +345,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
                             "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) VALUES (?, ?, ?, ?)")) {
                         insertPs.setString(1, playerUuid.toString());
                         insertPs.setString(2, currencyType);
-                        insertPs.setInt(3, balance);
+                        insertPs.setDouble(3, balance);
                         insertPs.setLong(4, now);
                         return insertPs.executeUpdate() > 0;
                     }
@@ -358,8 +358,8 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
     }
 
     @Override
-    public int depositAll(String type, int amount) {
-        if (amount < 0) {
+    public int depositAll(String type, double amount) {
+        if (isInvalidAmount(amount)) {
             return 0;
         }
 
@@ -368,7 +368,7 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
         
         try (PreparedStatement ps = connection.prepareStatement(
                 "UPDATE nyeconomy_balances SET balance = balance + ?, last_updated = ? WHERE currency_type = ?")) {
-            ps.setInt(1, amount);
+            ps.setDouble(1, amount);
             ps.setLong(2, now);
             ps.setString(3, type);
             
@@ -418,5 +418,9 @@ public class SqliteStorageHandler extends AbstractStorgeHandler {
         } catch (SQLException e) {
             Main.getInstance().getLogger().log(Level.WARNING, "关闭数据库连接失败", e);
         }
+    }
+
+    private boolean isInvalidAmount(double amount) {
+        return amount < 0.0D || Double.isNaN(amount) || Double.isInfinite(amount);
     }
 }

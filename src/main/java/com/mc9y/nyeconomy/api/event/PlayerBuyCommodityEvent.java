@@ -14,10 +14,14 @@ public class PlayerBuyCommodityEvent extends Event
     private static final HandlerList HANDLER_LIST = new HandlerList();
     private final Player player;
     private final Commodity commodity;
-    private int price;
+    private double price;
     private boolean cancelled;
 
     public PlayerBuyCommodityEvent(Player player, Commodity commodity, int price) {
+        this(player, commodity, (double) price);
+    }
+
+    public PlayerBuyCommodityEvent(Player player, Commodity commodity, double price) {
         this.player = player;
         this.commodity = commodity;
         this.price = price;
@@ -27,8 +31,12 @@ public class PlayerBuyCommodityEvent extends Event
         return player;
     }
 
-    public int getPrice() {
+    public double getPrice() {
         return price;
+    }
+
+    public void setPrice(double price) {
+        this.price = price;
     }
 
     public void setPrice(int price) {
