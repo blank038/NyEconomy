@@ -4,14 +4,20 @@ import com.aystudio.core.bukkit.AyCore;
 import com.aystudio.core.bukkit.platform.wrapper.ITaskWrapper;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
+import com.mc9y.nyeconomy.util.Money;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TopCache {
     private static TopCache topCache;
 
-    private final Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> topData = new HashMap<>();
+    private volatile Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> topData = Collections.emptyMap();
+    private volatile Map<String, Map<Integer, AccountTopCache.Entry<String, BigDecimal>>> exactTopData = Collections.emptyMap();
     private ITaskWrapper task;
     private boolean enableTop;
 
@@ -51,43 +57,42 @@ public class TopCache {
      * @param cacheData 缓存数据
      */
     public void submitCache(Map<String, AccountTopCache> cacheData) {
-        // 清空数据
-        this.topData.clear();
+        Map<String, Map<Integer, AccountTopCache.Entry<String, Integer>>> legacyResult = new HashMap<>();
+        Map<String, Map<Integer, AccountTopCache.Entry<String, BigDecimal>>> exactResult = new HashMap<>();
         for (String currency : Main.getInstance().vaults) {
             final String finalCurrency = Main.getNyEconomyAPI().checkVaultType(currency);
-            this.topData.put(currency, this.calc(finalCurrency, cacheData));
+            Map<Integer, AccountTopCache.Entry<String, BigDecimal>> exact = this.calcExact(finalCurrency, cacheData);
+            Map<Integer, AccountTopCache.Entry<String, Integer>> legacy = new HashMap<>();
+            exact.forEach((index, entry) -> legacy.put(index,
+                    new AccountTopCache.Entry<>(entry.getName(), Money.toLegacyInt(entry.getValue()))));
+            exactResult.put(currency, exact);
+            legacyResult.put(currency, legacy);
         }
+        this.exactTopData = exactResult;
+        this.topData = legacyResult;
     }
 
     public Map<Integer, AccountTopCache.Entry<String, Integer>> getTopData(String currency) {
         return this.topData.getOrDefault(currency, new HashMap<>(0));
     }
 
-    private Map<Integer, AccountTopCache.Entry<String, Integer>> calc(String currency, Map<String, AccountTopCache> cacheData) {
+    public Map<Integer, AccountTopCache.Entry<String, BigDecimal>> getTopDataExact(String currency) {
+        return this.exactTopData.getOrDefault(currency, new HashMap<>(0));
+    }
+
+    private Map<Integer, AccountTopCache.Entry<String, BigDecimal>> calcExact(
+            String currency, Map<String, AccountTopCache> cacheData) {
         final int count = Main.getInstance().getConfig().getInt("cache-count");
-        Map<Integer, AccountTopCache.Entry<String, Integer>> result = new HashMap<>(count);
-        Map<String, Integer> tempData = new HashMap<>(cacheData.size());
+        Map<Integer, AccountTopCache.Entry<String, BigDecimal>> result = new HashMap<>(count);
+        List<Map.Entry<String, BigDecimal>> balances = new ArrayList<>(cacheData.size());
         for (Map.Entry<String, AccountTopCache> entry : cacheData.entrySet()) {
-            tempData.put(entry.getKey(), entry.getValue().getCurrencyCount(currency));
+            balances.add(new java.util.AbstractMap.SimpleImmutableEntry<>(entry.getKey(),
+                    entry.getValue().getCurrencyCountExact(currency)));
         }
-        String[] names = tempData.keySet().toArray(new String[0]);
-        Integer[] counts = tempData.values().toArray(new Integer[0]);
-        for (int i = 0; i < names.length - 1; i++) {
-            for (int x = i + 1; x < names.length; x++) {
-                if (counts[i] < counts[x]) {
-                    String tmp = names[i];
-                    Integer tmp1 = counts[i];
-                    counts[i] = counts[x];
-                    names[i] = names[x];
-                    names[x] = tmp;
-                    counts[x] = tmp1;
-                }
-            }
-        }
-        for (int i = 0; i < names.length; i++) {
-            if (i < count) {
-                result.put(i, new AccountTopCache.Entry<>(names[i], counts[i]));
-            }
+        balances.sort((left, right) -> right.getValue().compareTo(left.getValue()));
+        for (int i = 0; i < balances.size() && i < count; i++) {
+            Map.Entry<String, BigDecimal> entry = balances.get(i);
+            result.put(i, new AccountTopCache.Entry<>(entry.getKey(), entry.getValue()));
         }
         return result;
     }

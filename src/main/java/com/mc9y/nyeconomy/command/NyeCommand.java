@@ -9,12 +9,14 @@ import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.message.TopMessage;
 import com.mc9y.nyeconomy.migration.MigrationHandler;
 import com.mc9y.nyeconomy.service.UUIDService;
+import com.mc9y.nyeconomy.util.Money;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -113,7 +115,8 @@ public class NyeCommand implements CommandExecutor {
             }
             sender.sendMessage("§f" + sender.getName() + " 的个人经济情况;");
             for (String v : instance.vaults) {
-                sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, player.getName()));
+                sender.sendMessage(" §a> §f" + v + ": §7"
+                        + Money.format(Main.getNyEconomyAPI().getBalanceExact(v, player.getUniqueId())));
             }
         }
     }
@@ -130,45 +133,59 @@ public class NyeCommand implements CommandExecutor {
             }
             UUID playerUUID = UUIDService.getInstance().getPlayerUUID(args[1]);
             
-            int amount;
+            BigDecimal amount;
             try {
-                amount = Integer.parseInt(args[3]);
-            } catch (Exception e) {
+                amount = Money.parseCommand(args[3]);
+            } catch (IllegalArgumentException e) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
+            if (type != 2 && amount.signum() == 0) {
+                sender.sendMessage(Main.getString("message.fail-amount", true));
+                return;
+            }
+            String formattedAmount = Money.format(amount);
             switch (type) {
                 case 0:
-                    Main.getNyEconomyAPI().deposit(args[2], playerUUID, amount);
+                    if (!Main.getNyEconomyAPI().tryDeposit(args[2], playerUUID, amount)) {
+                        sender.sendMessage(Main.getString("message.fail-amount", true));
+                        return;
+                    }
                     sender.sendMessage(Main.getString("message.give", true)
                             .replace("&", "§")
                             .replace("%type%", args[2])
-                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%amount%", formattedAmount)
                             .replace("%player%", args[1]));
                     if (args.length > 4 && "true".equalsIgnoreCase(args[4])) {
                         Player target = Bukkit.getPlayerExact(args[1]);
                         if (target != null && target.isOnline()) {
                             target.sendMessage(Main.getString("message.receive", true)
                                     .replace("%type%", args[2])
-                                    .replace("%amount%", String.valueOf(amount))
+                                    .replace("%amount%", formattedAmount)
                                     .replace("%sender%", sender.getName())
                                     .replace("%player%", args[1]));
                         }
                     }
                     break;
                 case 1:
-                    Main.getNyEconomyAPI().withdraw(args[2], playerUUID, amount);
+                    if (!Main.getNyEconomyAPI().tryWithdraw(args[2], playerUUID, amount)) {
+                        sender.sendMessage(Main.getString("message.insufficient-balance", true));
+                        return;
+                    }
                     sender.sendMessage(Main.getString("message.take", true)
                             .replace("%type%", args[2])
-                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%amount%", formattedAmount)
                             .replace("%player%", args[1])
-                            .replace("%last%", String.valueOf(Main.getNyEconomyAPI().getBalance(args[2], playerUUID))));
+                            .replace("%last%", Money.format(Main.getNyEconomyAPI().getBalanceExact(args[2], playerUUID))));
                     break;
                 case 2:
-                    Main.getNyEconomyAPI().set(args[2], playerUUID, amount);
+                    if (!Main.getNyEconomyAPI().trySet(args[2], playerUUID, amount)) {
+                        sender.sendMessage(Main.getString("message.fail-amount", true));
+                        return;
+                    }
                     sender.sendMessage(Main.getString("message.set", true)
                             .replace("%type%", args[2])
-                            .replace("%amount%", String.valueOf(amount))
+                            .replace("%amount%", formattedAmount)
                             .replace("%player%", args[1]));
                     break;
                 default:
@@ -194,7 +211,8 @@ public class NyeCommand implements CommandExecutor {
             }
             sender.sendMessage("§f" + args[1] + " 的个人经济情况;");
             for (String v : instance.vaults) {
-                sender.sendMessage(" §a> §f" + v + ": §7" + Main.getNyEconomyAPI().getBalance(v, args[1]));
+                sender.sendMessage(" §a> §f" + v + ": §7"
+                        + Money.format(Main.getNyEconomyAPI().getBalanceExact(v, args[1])));
             }
         } else {
             sender.sendMessage(Main.getString("message.no-has-permission", true));
@@ -216,17 +234,28 @@ public class NyeCommand implements CommandExecutor {
                 return;
             }
             Commodity commodity = Commodity.COMMODITY_MAP.get(args[1]);
-            if (Main.getNyEconomyAPI().getBalance(commodity.getType(), player.getName()) < commodity.getAmount()) {
+            BigDecimal price = commodity.getAmountExact();
+            if (Main.getNyEconomyAPI().getBalanceExact(commodity.getType(), player.getUniqueId()).compareTo(price) < 0) {
                 player.sendMessage(Main.getString("message.lack-currency", true)
-                        .replace("%type%", commodity.getType()).replace("%amount%", commodity.getAmount() + ""));
+                        .replace("%type%", commodity.getType()).replace("%amount%", Money.format(price)));
                 return;
             }
-            PlayerBuyCommodityEvent event = new PlayerBuyCommodityEvent(player, commodity, commodity.getAmount());
+            PlayerBuyCommodityEvent event = new PlayerBuyCommodityEvent(player, commodity, price);
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
                 return;
             }
-            Main.getNyEconomyAPI().withdraw(commodity.getType(), player.getName(), event.getPrice());
+            if (event.getPriceExact().signum() == 0) {
+                player.sendMessage(Main.getString("message.fail-amount", true));
+                return;
+            }
+            if (!Main.getNyEconomyAPI().tryWithdraw(
+                    commodity.getType(), player.getUniqueId(), event.getPriceExact())) {
+                player.sendMessage(Main.getString("message.lack-currency", true)
+                        .replace("%type%", commodity.getType())
+                        .replace("%amount%", Money.format(event.getPriceExact())));
+                return;
+            }
             commodity.give(player.getName());
             player.sendMessage(Main.getString("message.buy-success", true)
                     .replace("%commodity%", commodity.getName()));
@@ -245,14 +274,14 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(Main.getString("message.pay-cancelled", true));
                 return;
             }
-            int amount;
+            BigDecimal amount;
             try {
-                amount = Integer.parseInt(args[3]);
-            } catch (Exception e) {
+                amount = Money.parseCommand(args[3]);
+            } catch (IllegalArgumentException e) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
-            if (amount <= 0) {
+            if (amount.signum() <= 0) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
@@ -260,14 +289,16 @@ public class NyeCommand implements CommandExecutor {
                 sender.sendMessage(Main.getString("message.cannot-pay-self", true));
                 return;
             }
-            if (Main.getNyEconomyAPI().getBalance(args[2], sender.getName()) < amount) {
+            if (Main.getNyEconomyAPI().getBalanceExact(args[2], sender.getName()).compareTo(amount) < 0) {
                 sender.sendMessage(Main.getString("message.insufficient-balance", true));
                 return;
             }
-            Main.getNyEconomyAPI().withdraw(args[2], sender.getName(), amount);
-            Main.getNyEconomyAPI().deposit(args[2], args[1], amount);
+            if (!Main.getNyEconomyAPI().tryTransfer(args[2], sender.getName(), args[1], amount)) {
+                sender.sendMessage(Main.getString("message.insufficient-balance", true));
+                return;
+            }
             sender.sendMessage(Main.getString("message.pay", true)
-                    .replace("%type%", args[2]).replace("%amount%", amount + "")
+                    .replace("%type%", args[2]).replace("%amount%", Money.format(amount))
                     .replace("%player%", args[1]));
         } else {
             sender.sendMessage(Main.getString("message.no-has-permission", true));
@@ -364,7 +395,7 @@ public class NyeCommand implements CommandExecutor {
                 }
             }
             page = Math.max(1, page);
-            new TopMessage(TopCache.getInstance().getTopData(args[1]), page).send(args[1], sender);
+            TopMessage.fromExact(TopCache.getInstance().getTopDataExact(args[1]), page).send(args[1], sender);
         }
     }
 
@@ -528,10 +559,14 @@ public class NyeCommand implements CommandExecutor {
             return;
         }
 
-        int amount;
+        BigDecimal amount;
         try {
-            amount = Integer.parseInt(args[2]);
-        } catch (Exception e) {
+            amount = Money.parseCommand(args[2]);
+        } catch (IllegalArgumentException e) {
+            sender.sendMessage(Main.getString("message.fail-amount", true));
+            return;
+        }
+        if (amount.signum() <= 0) {
             sender.sendMessage(Main.getString("message.fail-amount", true));
             return;
         }
@@ -544,7 +579,7 @@ public class NyeCommand implements CommandExecutor {
             AyCore.getPlatformApi().runTask(instance, () -> {
                 sender.sendMessage(Main.getString("message.giveall-success", true)
                         .replace("%count%", String.valueOf(affectedRows))
-                        .replace("%amount%", String.valueOf(amount))
+                        .replace("%amount%", Money.format(amount))
                         .replace("%type%", currencyType));
             });
         });

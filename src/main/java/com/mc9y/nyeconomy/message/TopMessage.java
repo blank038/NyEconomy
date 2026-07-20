@@ -2,9 +2,11 @@ package com.mc9y.nyeconomy.message;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountTopCache;
+import com.mc9y.nyeconomy.util.Money;
 import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,35 @@ public class TopMessage {
                     .replace("%name%", entry.getName())
                     .replace("%count%", String.valueOf(entry.getValue())));
         }
+    }
+
+    private TopMessage(Map<Integer, AccountTopCache.Entry<String, BigDecimal>> top, int page, boolean exact) {
+        if (top.isEmpty()) {
+            this.messageList.add(Main.getString("message.empty-data", true));
+            return;
+        }
+        page -= 1;
+        this.messageList.add(Main.getInstance().getConfig().getString("message.top.header"));
+        int max = Main.getInstance().getConfig().getInt("cache-count");
+        int start = Math.min(page * 10, max), end = Math.min((page + 1) * 10, max);
+        for (int i = start; i < end; i++) {
+            AccountTopCache.Entry<String, BigDecimal> entry = top.get(i);
+            if (entry == null) {
+                this.messageList.add(Main.getString("message.top.line")
+                        .replace("%top%", String.valueOf(i + 1))
+                        .replace("%name%", Main.getInstance().getConfig().getString("placeholder.none", "无"))
+                        .replace("%count%", Main.getInstance().getConfig().getString("placeholder.none", "无")));
+                continue;
+            }
+            this.messageList.add(Main.getString("message.top.line")
+                    .replace("%top%", String.valueOf(i + 1))
+                    .replace("%name%", entry.getName())
+                    .replace("%count%", Money.format(entry.getValue())));
+        }
+    }
+
+    public static TopMessage fromExact(Map<Integer, AccountTopCache.Entry<String, BigDecimal>> top, int page) {
+        return new TopMessage(top, page, true);
     }
 
     public void send(String currency, CommandSender player) {

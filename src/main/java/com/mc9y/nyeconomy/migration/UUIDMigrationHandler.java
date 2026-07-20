@@ -3,7 +3,9 @@ package com.mc9y.nyeconomy.migration;
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.service.UUIDService;
+import com.mc9y.nyeconomy.util.Money;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -12,37 +14,47 @@ public class UUIDMigrationHandler {
     
     public MigrationResult migrateToUUID(Connection connection) {
         MigrationResult result = new MigrationResult();
-        
+        boolean originalAutoCommit = true;
         try {
             if (isAlreadyMigrated(connection)) {
                 result.success = false;
                 result.message = "数据已经迁移过,无需重复迁移";
                 return result;
             }
+
+            originalAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
             
             Set<String> playerNames = loadAllPlayerNames(connection);
             result.totalPlayers = playerNames.size();
             
             for (String name : playerNames) {
-                try {
-                    UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
-                    insertPlayerMapping(connection, uuid, name);
-                    result.successCount++;
-                } catch (Exception e) {
-                    Main.getInstance().getLogger().warning("迁移玩家失败: " + name);
-                    result.failCount++;
-                }
+                UUID uuid = UUIDService.getInstance().getPlayerUUID(name);
+                insertPlayerMapping(connection, uuid, name);
+                result.successCount++;
             }
             
             migrateBalancesTable(connection);
+            connection.commit();
             
             result.success = true;
             result.message = "UUID 迁移完成";
             
         } catch (Exception e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackError) {
+                e.addSuppressed(rollbackError);
+            }
             Main.getInstance().getLogger().log(Level.SEVERE, "UUID 迁移失败", e);
             result.success = false;
             result.message = "迁移异常: " + e.getMessage();
+        } finally {
+            try {
+                connection.setAutoCommit(originalAutoCommit);
+            } catch (SQLException e) {
+                Main.getInstance().getLogger().log(Level.WARNING, "恢复 UUID 迁移连接状态失败", e);
+            }
         }
         
         return result;
@@ -118,6 +130,7 @@ public class UUIDMigrationHandler {
     
     private void migrateBalancesTable(Connection connection) throws SQLException {
         Map<String, List<BalanceRecord>> playerBalances = new HashMap<>();
+        boolean centsStorage = usesCentsStorage(connection);
         
         try (Statement stmt = connection.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT player_name, currency_type, balance, last_updated FROM nyeconomy_balances")) {
@@ -125,7 +138,8 @@ public class UUIDMigrationHandler {
                 String playerName = rs.getString("player_name");
                 playerBalances.computeIfAbsent(playerName, k -> new ArrayList<>()).add(new BalanceRecord(
                     rs.getString("currency_type"),
-                    rs.getInt("balance"),
+                    centsStorage ? Money.fromCents(rs.getLong("balance"))
+                            : Money.of(rs.getInt("balance")),
                     rs.getLong("last_updated")
                 ));
             }
@@ -147,7 +161,7 @@ public class UUIDMigrationHandler {
                             "ON DUPLICATE KEY UPDATE balance = VALUES(balance), last_updated = VALUES(last_updated)")) {
                         ps.setString(1, uuid.toString());
                         ps.setString(2, record.currencyType);
-                        ps.setInt(3, record.balance);
+                        ps.setBigDecimal(3, record.balance);
                         ps.setLong(4, record.lastUpdated);
                         ps.executeUpdate();
                     }
@@ -158,7 +172,11 @@ public class UUIDMigrationHandler {
                             "  SELECT 1 FROM nyeconomy_balances WHERE player_uuid = ? AND currency_type = ?)")) {
                         ps.setString(1, uuid.toString());
                         ps.setString(2, record.currencyType);
-                        ps.setInt(3, record.balance);
+                        if (centsStorage) {
+                            ps.setLong(3, Money.toCents(record.balance));
+                        } else {
+                            ps.setBigDecimal(3, record.balance);
+                        }
                         ps.setLong(4, record.lastUpdated);
                         ps.setString(5, uuid.toString());
                         ps.setString(6, record.currencyType);
@@ -168,13 +186,25 @@ public class UUIDMigrationHandler {
             }
         }
     }
+
+    private boolean usesCentsStorage(Connection connection) {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT option_value FROM nyeconomy_options WHERE option_key = ?")) {
+            statement.setString(1, BalanceSchemaMigrator.VERSION_KEY);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() && BalanceSchemaMigrator.VERSION.equals(resultSet.getString(1));
+            }
+        } catch (SQLException e) {
+            return false;
+        }
+    }
     
     private static class BalanceRecord {
         String currencyType;
-        int balance;
+        BigDecimal balance;
         long lastUpdated;
         
-        BalanceRecord(String currencyType, int balance, long lastUpdated) {
+        BalanceRecord(String currencyType, BigDecimal balance, long lastUpdated) {
             this.currencyType = currencyType;
             this.balance = balance;
             this.lastUpdated = lastUpdated;

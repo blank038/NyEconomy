@@ -8,7 +8,10 @@ import com.mc9y.nyeconomy.data.TopCache;
 import com.mc9y.nyeconomy.interfaces.AbstractDataSourceHandlerImpl;
 import com.mc9y.nyeconomy.interfaces.impl.CommonDataSourceHandler;
 import com.mc9y.nyeconomy.interfaces.impl.HikariDataSourceHandler;
+import com.mc9y.nyeconomy.migration.BalanceSchemaMigrator;
+import com.mc9y.nyeconomy.util.Money;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
@@ -25,7 +28,7 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                     "id BIGINT PRIMARY KEY AUTO_INCREMENT," +
                     "player_uuid VARCHAR(36) NOT NULL," +
                     "currency_type VARCHAR(50) NOT NULL," +
-                    "balance INTEGER NOT NULL DEFAULT 0," +
+                    "balance DECIMAL(12,2) NOT NULL DEFAULT 0.00," +
                     "last_updated BIGINT NOT NULL," +
                     "UNIQUE KEY uk_player_currency (player_uuid, currency_type)," +
                     "INDEX idx_player_uuid (player_uuid)," +
@@ -59,15 +62,27 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
     }
 
     public void createTable() {
-        for (String sql : this.SQL_ARRAY) {
-            this.DATA_SOURCE.connect((connection, statement) -> {
-                try {
-                    statement.executeUpdate();
-                    MySqlStorgeHandler.SQL_STATUS = true;
-                } catch (SQLException e) {
-                    e.printStackTrace();
+        try (Connection connection = DATA_SOURCE.getConnection()) {
+            if (connection == null) {
+                throw new SQLException("无法取得 MySQL 连接");
+            }
+            for (String sql : this.SQL_ARRAY) {
+                try (Statement statement = connection.createStatement()) {
+                    statement.executeUpdate(sql);
                 }
-            }, sql);
+            }
+            String versionSql = "INSERT INTO nyeconomy_options "
+                    + "(option_key, option_value, updated_at) VALUES (?, ?, ?) "
+                    + "ON DUPLICATE KEY UPDATE option_value = VALUES(option_value), updated_at = VALUES(updated_at)";
+            try (PreparedStatement statement = connection.prepareStatement(versionSql)) {
+                statement.setString(1, BalanceSchemaMigrator.VERSION_KEY);
+                statement.setString(2, BalanceSchemaMigrator.VERSION);
+                statement.setLong(3, System.currentTimeMillis());
+                statement.executeUpdate();
+            }
+            MySqlStorgeHandler.SQL_STATUS = true;
+        } catch (SQLException e) {
+            throw new IllegalStateException("初始化 MySQL 表结构失败", e);
         }
     }
 
@@ -143,142 +158,252 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
 
     @Override
     public int balance(UUID uuid, String type, int status) {
+        return Money.toLegacyInt(balanceExact(uuid, type, status));
+    }
+
+    @Override
+    public BigDecimal balanceExact(UUID uuid, String type, int status) {
         if (status == 1) {
-            return 0;
+            return Money.ZERO;
         }
 
         type = Main.getNyEconomyAPI().checkVaultType(type);
 
         AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
         if (cache != null) {
-            return cache.balance(type);
+            return cache.balanceExact(type);
         }
 
         if (status == 0 || isExists(uuid)) {
             cache = getPlayerCache(uuid);
-            return cache.balance(type);
+            return cache.balanceExact(type);
         }
 
-        return 0;
+        return Money.ZERO;
     }
 
     @Override
     public boolean deposit(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+        return deposit(uuid, type, Money.of(amount));
+    }
+
+    @Override
+    public boolean deposit(UUID uuid, String type, BigDecimal amount) {
+        final BigDecimal normalized;
+        try {
+            normalized = Money.normalize(amount);
+        } catch (IllegalArgumentException e) {
             return false;
         }
-
-        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
-        
-        AtomicBoolean success = new AtomicBoolean(false);
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
-                long now = System.currentTimeMillis();
-                statement.setString(1, uuid.toString());
-                statement.setString(2, currencyType);
-                statement.setInt(3, amount);
-                statement.setLong(4, now);
-                statement.setInt(5, amount);
-                statement.setLong(6, now);
-                
-                int rows = statement.executeUpdate();
-                success.set(rows > 0);
-                
-                if (rows > 0) {
-                    AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
-                    if (cache != null) {
-                        cache.addBalance(currencyType, amount);
-                    }
-                }
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            } finally {
-                this.DATA_SOURCE.close(statement, null);
-            }
-        }, "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
-           "VALUES (?, ?, ?, ?) " +
-           "ON DUPLICATE KEY UPDATE balance = balance + ?, last_updated = ?");
-        
-        return success.get();
+        return mutateBalance(uuid, type, normalized, Mutation.DEPOSIT);
     }
 
     @Override
     public boolean withdraw(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+        return withdraw(uuid, type, Money.of(amount));
+    }
+
+    @Override
+    public boolean withdraw(UUID uuid, String type, BigDecimal amount) {
+        final BigDecimal normalized;
+        try {
+            normalized = Money.normalize(amount);
+        } catch (IllegalArgumentException e) {
             return false;
         }
-
-        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
-        
-        AtomicBoolean success = new AtomicBoolean(false);
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
-                long now = System.currentTimeMillis();
-                statement.setInt(1, amount);
-                statement.setLong(2, now);
-                statement.setString(3, uuid.toString());
-                statement.setString(4, currencyType);
-                statement.setInt(5, amount);
-                
-                int rows = statement.executeUpdate();
-                success.set(rows > 0);
-                
-                if (rows > 0) {
-                    AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
-                    if (cache != null) {
-                        cache.subtractBalance(currencyType, amount);
-                    }
-                }
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            } finally {
-                this.DATA_SOURCE.close(statement, null);
-            }
-        }, "UPDATE nyeconomy_balances " +
-           "SET balance = balance - ?, last_updated = ? " +
-           "WHERE player_uuid = ? AND currency_type = ? AND balance >= ?");
-        
-        return success.get();
+        return mutateBalance(uuid, type, normalized, Mutation.WITHDRAW);
     }
 
     @Override
     public boolean set(UUID uuid, String type, int amount) {
-        if (amount < 0) {
+        return set(uuid, type, Money.of(amount));
+    }
+
+    @Override
+    public boolean set(UUID uuid, String type, BigDecimal amount) {
+        final BigDecimal normalized;
+        try {
+            normalized = Money.normalize(amount);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        return mutateBalance(uuid, type, normalized, Mutation.SET);
+    }
+
+    private boolean mutateBalance(UUID uuid, String type, BigDecimal amount, Mutation mutation) {
+        String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
+        ReentrantLock lock = AccountCache.getAccountLock(uuid);
+        boolean committed = false;
+        lock.lock();
+        try (Connection connection = DATA_SOURCE.getConnection()) {
+            if (connection == null) {
+                return false;
+            }
+            connection.setAutoCommit(false);
+            try {
+                ensureBalanceRow(connection, uuid, currencyType);
+                BigDecimal currentBalance = selectBalanceForUpdate(connection, uuid, currencyType);
+                final BigDecimal newBalance;
+                if (mutation == Mutation.DEPOSIT) {
+                    try {
+                        newBalance = Money.normalize(currentBalance.add(amount));
+                    } catch (IllegalArgumentException e) {
+                        connection.rollback();
+                        return false;
+                    }
+                } else if (mutation == Mutation.WITHDRAW) {
+                    if (currentBalance.compareTo(amount) < 0) {
+                        connection.rollback();
+                        return false;
+                    }
+                    newBalance = currentBalance.subtract(amount);
+                } else {
+                    newBalance = amount;
+                }
+
+                upsertBalance(connection, uuid, currencyType, newBalance);
+                connection.commit();
+                committed = true;
+                AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
+                if (cache != null) {
+                    cache.setBalanceExact(currencyType, newBalance);
+                }
+                return true;
+            } catch (SQLException e) {
+                connection.rollback();
+                Main.getInstance().getLogger().log(Level.WARNING, "MySQL 更新余额失败", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            if (committed) {
+                Main.getInstance().getLogger().log(Level.WARNING, "MySQL 余额已提交，但关闭连接失败", e);
+                return true;
+            }
+            Main.getInstance().getLogger().log(Level.WARNING, "MySQL 更新余额连接失败", e);
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public boolean transfer(UUID source, UUID target, String type, BigDecimal amount) {
+        final BigDecimal normalized;
+        try {
+            normalized = Money.normalize(amount);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        if (source.equals(target) || normalized.signum() == 0) {
             return false;
         }
 
-        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
-        
-        AtomicBoolean success = new AtomicBoolean(false);
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
-                long now = System.currentTimeMillis();
-                statement.setString(1, uuid.toString());
-                statement.setString(2, currencyType);
-                statement.setInt(3, amount);
-                statement.setLong(4, now);
-                statement.setInt(5, amount);
-                statement.setLong(6, now);
-                
-                int rows = statement.executeUpdate();
-                success.set(rows > 0);
-                
-                if (rows > 0) {
-                    AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
-                    if (cache != null) {
-                        cache.setBalance(currencyType, amount);
-                    }
-                }
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            } finally {
-                this.DATA_SOURCE.close(statement, null);
+        String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
+        ReentrantLock sourceLock = AccountCache.getAccountLock(source);
+        ReentrantLock targetLock = AccountCache.getAccountLock(target);
+        ReentrantLock first = source.toString().compareTo(target.toString()) < 0 ? sourceLock : targetLock;
+        ReentrantLock second = first == sourceLock ? targetLock : sourceLock;
+        boolean committed = false;
+        first.lock();
+        second.lock();
+        try (Connection connection = DATA_SOURCE.getConnection()) {
+            if (connection == null) {
+                return false;
             }
-        }, "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
-           "VALUES (?, ?, ?, ?) " +
-           "ON DUPLICATE KEY UPDATE balance = ?, last_updated = ?");
-        
-        return success.get();
+            connection.setAutoCommit(false);
+            try {
+                ensureBalanceRow(connection, source, currencyType);
+                ensureBalanceRow(connection, target, currencyType);
+                BigDecimal sourceBalance = selectBalanceForUpdate(connection, source, currencyType);
+                BigDecimal targetBalance = selectBalanceForUpdate(connection, target, currencyType);
+                if (sourceBalance.compareTo(normalized) < 0) {
+                    connection.rollback();
+                    return false;
+                }
+
+                BigDecimal newSourceBalance = sourceBalance.subtract(normalized);
+                final BigDecimal newTargetBalance;
+                try {
+                    newTargetBalance = Money.normalize(targetBalance.add(normalized));
+                } catch (IllegalArgumentException e) {
+                    connection.rollback();
+                    return false;
+                }
+
+                upsertBalance(connection, source, currencyType, newSourceBalance);
+                upsertBalance(connection, target, currencyType, newTargetBalance);
+                connection.commit();
+                committed = true;
+
+                AccountCache sourceCache = AccountCache.CACHE_DATA.get(source);
+                if (sourceCache != null) {
+                    sourceCache.setBalanceExact(currencyType, newSourceBalance);
+                }
+                AccountCache targetCache = AccountCache.CACHE_DATA.get(target);
+                if (targetCache != null) {
+                    targetCache.setBalanceExact(currencyType, newTargetBalance);
+                }
+                return true;
+            } catch (SQLException e) {
+                connection.rollback();
+                Main.getInstance().getLogger().log(Level.WARNING, "MySQL 转账失败", e);
+                return false;
+            }
+        } catch (SQLException e) {
+            if (committed) {
+                Main.getInstance().getLogger().log(Level.WARNING, "MySQL 转账已提交，但关闭连接失败", e);
+                return true;
+            }
+            Main.getInstance().getLogger().log(Level.WARNING, "MySQL 转账连接失败", e);
+            return false;
+        } finally {
+            second.unlock();
+            first.unlock();
+        }
+    }
+
+    private BigDecimal selectBalanceForUpdate(Connection connection, UUID uuid, String currencyType)
+            throws SQLException {
+        String sql = "SELECT balance FROM nyeconomy_balances "
+                + "WHERE player_uuid = ? AND currency_type = ? FOR UPDATE";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, uuid.toString());
+            statement.setString(2, currencyType);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? Money.normalize(resultSet.getBigDecimal(1)) : Money.ZERO;
+            }
+        }
+    }
+
+    private void ensureBalanceRow(Connection connection, UUID uuid, String currencyType) throws SQLException {
+        String sql = "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) "
+                + "VALUES (?, ?, 0.00, ?) ON DUPLICATE KEY UPDATE player_uuid = player_uuid";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, uuid.toString());
+            statement.setString(2, currencyType);
+            statement.setLong(3, System.currentTimeMillis());
+            statement.executeUpdate();
+        }
+    }
+
+    private void upsertBalance(Connection connection, UUID uuid, String currencyType, BigDecimal balance)
+            throws SQLException {
+        String sql = "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) "
+                + "VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE balance = VALUES(balance), "
+                + "last_updated = VALUES(last_updated)";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, uuid.toString());
+            statement.setString(2, currencyType);
+            statement.setBigDecimal(3, balance);
+            statement.setLong(4, System.currentTimeMillis());
+            statement.executeUpdate();
+        }
+    }
+
+    private enum Mutation {
+        DEPOSIT,
+        WITHDRAW,
+        SET
     }
 
     @Override
@@ -367,10 +492,8 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
                     statement.setString(1, playerName);
                     resultSet = statement.executeQuery();
                     while (resultSet.next()) {
-                        topCache.getTempMap().put(
-                                resultSet.getString("currency_type"),
-                                resultSet.getInt("balance")
-                        );
+                        topCache.setCurrencyCountExact(resultSet.getString("currency_type"),
+                                Money.normalize(resultSet.getBigDecimal("balance")));
                     }
                 } catch (SQLException throwables) {
                     throwables.printStackTrace();
@@ -393,114 +516,116 @@ public class MySqlStorgeHandler extends AbstractStorgeHandler {
         }
 
         final AccountCache newCache = new AccountCache();
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            ResultSet resultSet = null;
-            try {
+        try (Connection connection = DATA_SOURCE.getConnection()) {
+            if (connection == null) {
+                throw new SQLException("无法取得 MySQL 连接");
+            }
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT currency_type, balance FROM nyeconomy_balances WHERE player_uuid=?")) {
                 statement.setString(1, uuid.toString());
-                resultSet = statement.executeQuery();
+                try (ResultSet resultSet = statement.executeQuery()) {
                 while (resultSet.next()) {
                     String currencyType = resultSet.getString("currency_type");
-                    int balance = resultSet.getInt("balance");
-                    newCache.setBalance(currencyType, balance);
+                    BigDecimal balance = resultSet.getBigDecimal("balance");
+                    newCache.setBalanceExact(currencyType, Money.normalize(balance));
                 }
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            } finally {
-                this.DATA_SOURCE.close(statement, resultSet);
+                }
             }
-        }, "SELECT currency_type, balance FROM nyeconomy_balances WHERE player_uuid=?");
+        } catch (SQLException e) {
+            throw new IllegalStateException("加载 MySQL 玩家余额失败: " + uuid, e);
+        }
 
         AccountCache existing = AccountCache.CACHE_DATA.putIfAbsent(uuid, newCache);
         return existing != null ? existing : newCache;
     }
 
-    private AccountCache getOrCreateCache(UUID uuid) {
-        AccountCache cache = AccountCache.CACHE_DATA.get(uuid);
-        if (cache != null) {
-            return cache;
-        }
-        return getPlayerCache(uuid);
-    }
-
-    private boolean updateBalance(UUID playerUuid, String currencyType, int balance) {
-        AtomicBoolean success = new AtomicBoolean(false);
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
-                long now = System.currentTimeMillis();
-                statement.setString(1, playerUuid.toString());
-                statement.setString(2, currencyType);
-                statement.setInt(3, balance);
-                statement.setLong(4, now);
-                statement.setInt(5, balance);
-                statement.setLong(6, now);
-
-                statement.executeUpdate();
-                success.set(true);
-            } catch (SQLException throwables) {
-                throwables.printStackTrace();
-            } finally {
-                this.DATA_SOURCE.close(statement, null);
-            }
-        }, "INSERT INTO nyeconomy_balances (player_uuid, currency_type, balance, last_updated) " +
-                "VALUES (?, ?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE balance = ?, last_updated = ?");
-        return success.get();
+    @Override
+    public int depositAll(String type, int amount) {
+        return depositAll(type, Money.of(amount));
     }
 
     @Override
-    public int depositAll(String type, int amount) {
-        if (amount < 0) {
+    public int depositAll(String type, BigDecimal amount) {
+        final BigDecimal normalized;
+        try {
+            normalized = Money.normalize(amount);
+        } catch (IllegalArgumentException e) {
             return 0;
         }
 
-        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
-        final int[] affectedRows = {0};
-        
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
-                long now = System.currentTimeMillis();
-                statement.setString(1, currencyType);
-                statement.setInt(2, amount);
-                statement.setLong(3, now);
-                
-                affectedRows[0] = statement.executeUpdate();
-                
-                AccountCache.CACHE_DATA.forEach((uuid, cache) -> {
-                    cache.addBalance(currencyType, amount);
-                });
-            } catch (SQLException throwables) {
-                Main.getInstance().getLogger().log(Level.WARNING, "批量给予货币失败", throwables);
-            } finally {
-                this.DATA_SOURCE.close(statement, null);
+        String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
+        boolean committed = false;
+        int committedRows = 0;
+        try (Connection connection = DATA_SOURCE.getConnection()) {
+            if (connection == null) {
+                return 0;
             }
-        }, "UPDATE nyeconomy_balances SET balance = balance + ?, last_updated = ? WHERE currency_type = ?");
-        
-        return affectedRows[0];
+            connection.setAutoCommit(false);
+            try (PreparedStatement check = connection.prepareStatement(
+                    "SELECT balance FROM nyeconomy_balances WHERE currency_type = ? FOR UPDATE")) {
+                check.setString(1, currencyType);
+                try (ResultSet resultSet = check.executeQuery()) {
+                    BigDecimal maximumBeforeDeposit = Money.MAX_BALANCE.subtract(normalized);
+                    while (resultSet.next()) {
+                        if (resultSet.getBigDecimal(1).compareTo(maximumBeforeDeposit) > 0) {
+                            connection.rollback();
+                            return 0;
+                        }
+                    }
+                }
+            }
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "UPDATE nyeconomy_balances SET balance = balance + ?, last_updated = ? WHERE currency_type = ?")) {
+                long now = System.currentTimeMillis();
+                statement.setBigDecimal(1, normalized);
+                statement.setLong(2, now);
+                statement.setString(3, currencyType);
+                int affectedRows = statement.executeUpdate();
+                connection.commit();
+                committedRows = affectedRows;
+                committed = true;
+                AccountCache.CACHE_DATA.clear();
+                return affectedRows;
+            }
+        } catch (SQLException e) {
+            if (committed) {
+                Main.getInstance().getLogger().log(Level.WARNING, "批量给予已提交，但关闭连接失败", e);
+                return committedRows;
+            }
+            Main.getInstance().getLogger().log(Level.WARNING, "批量给予货币失败", e);
+            return 0;
+        }
     }
 
     @Override
     public int resetAll(String type) {
-        final String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
-        final int[] affectedRows = {0};
-        
-        this.DATA_SOURCE.connect((connection, statement) -> {
-            try {
+        String currencyType = Main.getNyEconomyAPI().checkVaultType(type);
+        boolean committed = false;
+        int committedRows = 0;
+        try (Connection connection = DATA_SOURCE.getConnection()) {
+            if (connection == null) {
+                return 0;
+            }
+            connection.setAutoCommit(false);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "UPDATE nyeconomy_balances SET balance = 0.00, last_updated = ? WHERE currency_type = ?")) {
                 long now = System.currentTimeMillis();
                 statement.setLong(1, now);
                 statement.setString(2, currencyType);
-                
-                affectedRows[0] = statement.executeUpdate();
-                
-                AccountCache.CACHE_DATA.forEach((uuid, cache) -> {
-                    cache.setBalance(currencyType, 0);
-                });
-            } catch (SQLException throwables) {
-                Main.getInstance().getLogger().log(Level.WARNING, "批量重置货币失败", throwables);
-            } finally {
-                this.DATA_SOURCE.close(statement, null);
+                int affectedRows = statement.executeUpdate();
+                connection.commit();
+                committedRows = affectedRows;
+                committed = true;
+                AccountCache.CACHE_DATA.clear();
+                return affectedRows;
             }
-        }, "UPDATE nyeconomy_balances SET balance = 0, last_updated = ? WHERE currency_type = ?");
-        
-        return affectedRows[0];
+        } catch (SQLException e) {
+            if (committed) {
+                Main.getInstance().getLogger().log(Level.WARNING, "批量重置已提交，但关闭连接失败", e);
+                return committedRows;
+            }
+            Main.getInstance().getLogger().log(Level.WARNING, "批量重置货币失败", e);
+            return 0;
+        }
     }
 }

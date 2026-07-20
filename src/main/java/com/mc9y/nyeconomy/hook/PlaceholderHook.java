@@ -4,9 +4,11 @@ import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.data.AccountCache;
 import com.mc9y.nyeconomy.data.AccountTopCache;
 import com.mc9y.nyeconomy.data.TopCache;
+import com.mc9y.nyeconomy.util.Money;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.entity.Player;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -21,13 +23,13 @@ public class PlaceholderHook extends PlaceholderExpansion {
         this.plugin = main;
         this.placeholderConsumerMap.put("top@name", (player, currency, params) -> {
             int index = Integer.parseInt(params[2]);
-            AccountTopCache.Entry<String, Integer> entry = TopCache.getInstance().getTopData(currency).get(index);
+            AccountTopCache.Entry<String, BigDecimal> entry = TopCache.getInstance().getTopDataExact(currency).get(index);
             return entry == null ? Main.getString("placeholder.none") : entry.getName();
         });
         this.placeholderConsumerMap.put("top@count", (player, currency, params) -> {
             int index = Integer.parseInt(params[2]);
-            AccountTopCache.Entry<String, Integer> entry = TopCache.getInstance().getTopData(currency).get(index);
-            return entry == null ? Main.getString("placeholder.none") : String.valueOf(entry.getValue());
+            AccountTopCache.Entry<String, BigDecimal> entry = TopCache.getInstance().getTopDataExact(currency).get(index);
+            return entry == null ? Main.getString("placeholder.none") : Money.format(entry.getValue());
         });
     }
 
@@ -43,13 +45,8 @@ public class PlaceholderHook extends PlaceholderExpansion {
             return this.placeholderConsumerMap.get(key).accept(player, currency, split);
         }
         String currency = this.formatVariable(s);
-        if ("mysql".equalsIgnoreCase(plugin.getConfig().getString("data-option.type"))) {
-            if (AccountCache.CACHE_DATA.containsKey(player.getUniqueId())) {
-                return String.valueOf(AccountCache.CACHE_DATA.get(player.getUniqueId()).balance(currency));
-            }
-            return "0";
-        } else if (Main.getInstance().vaults.contains(s)) {
-            return String.valueOf(Main.getNyEconomyAPI().getBalance(currency, player.getName()));
+        if (Main.getInstance().vaults.contains(s)) {
+            return Money.format(Main.getNyEconomyAPI().getBalanceExact(currency, player.getUniqueId()));
         }
         return "";
     }

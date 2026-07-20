@@ -15,28 +15,33 @@ public abstract class AbstractDataSourceHandlerImpl implements IDataSourceHandle
     private Connection connection;
 
     public void connect(ExecuteModel executeModel, String sql) {
+        Connection activeConnection = null;
         PreparedStatement statement = null;
+        boolean borrowedConnection = false;
         try {
-            if (Main.getInstance().isDebug()) {
-                Main.getInstance().getLogger().info("MySQL 连接是否为空: " + (connection == null));
+            activeConnection = this.connection;
+            if (activeConnection == null || activeConnection.isClosed()) {
+                activeConnection = this.getConnection();
+                borrowedConnection = true;
             }
-            if (connection == null || connection.isClosed()) {
-                if (Main.getInstance().isDebug()) {
-                    Main.getInstance().getLogger().info("已重新从 MySQL 取得 Connection. ");
-                }
-                this.connection = this.getConnection();
+            if (activeConnection == null) {
+                throw new SQLException("无法取得 MySQL 连接");
             }
-            statement = connection.prepareStatement(sql);
-            executeModel.run(connection, statement);
+            statement = activeConnection.prepareStatement(sql);
+            executeModel.run(activeConnection, statement);
+            SQL_STATUS = true;
         } catch (SQLException e) {
             SQL_STATUS = false;
-            connection = this.getConnection();
-            if (Main.getInstance().isDebug()) {
-                e.printStackTrace();
-            }
-            this.connect(executeModel, sql);
+            Main.getInstance().getLogger().log(java.util.logging.Level.WARNING, "执行 MySQL 语句失败: " + sql, e);
         } finally {
             this.close(statement, null);
+            if (borrowedConnection && activeConnection != null) {
+                try {
+                    activeConnection.close();
+                } catch (SQLException e) {
+                    Main.getInstance().getLogger().log(java.util.logging.Level.WARNING, "关闭 MySQL 连接失败", e);
+                }
+            }
         }
     }
 

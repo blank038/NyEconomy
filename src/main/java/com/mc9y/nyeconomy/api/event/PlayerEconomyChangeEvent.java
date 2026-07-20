@@ -1,10 +1,12 @@
 package com.mc9y.nyeconomy.api.event;
 
+import com.mc9y.nyeconomy.util.Money;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public class PlayerEconomyChangeEvent extends Event implements Cancellable {
@@ -13,19 +15,24 @@ public class PlayerEconomyChangeEvent extends Event implements Cancellable {
     private final UUID playerUuid;
     private final String currencyType;
     private final EconomyAction action;
-    private final int oldBalance;
+    private final BigDecimal oldBalance;
     private final boolean fromVault;
-    private int amount;
+    private BigDecimal amount;
     private boolean cancelled;
 
     public PlayerEconomyChangeEvent(UUID playerUuid, String currencyType, EconomyAction action,
                                     int amount, int oldBalance, boolean fromVault) {
+        this(playerUuid, currencyType, action, Money.of(amount), Money.of(oldBalance), fromVault);
+    }
+
+    public PlayerEconomyChangeEvent(UUID playerUuid, String currencyType, EconomyAction action,
+                                    BigDecimal amount, BigDecimal oldBalance, boolean fromVault) {
         super(!Bukkit.isPrimaryThread());
         this.playerUuid = playerUuid;
         this.currencyType = currencyType;
         this.action = action;
-        this.amount = amount;
-        this.oldBalance = oldBalance;
+        this.amount = Money.normalize(amount);
+        this.oldBalance = Money.normalize(oldBalance);
         this.fromVault = fromVault;
     }
 
@@ -42,14 +49,26 @@ public class PlayerEconomyChangeEvent extends Event implements Cancellable {
     }
 
     public int getAmount() {
-        return amount;
+        return Money.toLegacyInt(amount);
     }
 
     public void setAmount(int amount) {
-        this.amount = amount;
+        this.amount = Money.of(amount);
+    }
+
+    public BigDecimal getAmountExact() {
+        return amount;
+    }
+
+    public void setAmountExact(BigDecimal amount) {
+        this.amount = Money.normalize(amount);
     }
 
     public int getOldBalance() {
+        return Money.toLegacyInt(oldBalance);
+    }
+
+    public BigDecimal getOldBalanceExact() {
         return oldBalance;
     }
 

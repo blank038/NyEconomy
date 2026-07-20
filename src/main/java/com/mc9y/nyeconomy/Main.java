@@ -13,6 +13,8 @@ import com.mc9y.nyeconomy.handler.MySqlStorgeHandler;
 import com.mc9y.nyeconomy.handler.SqliteStorageHandler;
 import com.mc9y.nyeconomy.hook.PlaceholderHook;
 import com.mc9y.nyeconomy.listener.PlayerListener;
+import com.mc9y.nyeconomy.migration.BalanceSchemaMigrator;
+import com.mc9y.nyeconomy.util.Money;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -20,6 +22,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 
 public class Main extends AyPlugin {
     private static NyEconomyAPI economyAPI;
@@ -54,13 +57,37 @@ public class Main extends AyPlugin {
         economyAPI = new NyEconomyAPI();
 
         this.getConsoleLogger().setPrefix("");
-        this.loadConfig();
-        
-        if (this.isMySqlMode()) {
-            AbstractStorgeHandler.setHandler(MySqlStorgeHandler.class);
-        } else {
-            AbstractStorgeHandler.setHandler(SqliteStorageHandler.class);
+        saveDefaultConfig();
+        reloadConfig();
+        debug = getConfig().getBoolean("debug");
+
+        try {
+            BalanceSchemaMigrator.migrate(this);
+        } catch (Exception e) {
+            getLogger().log(Level.SEVERE, "余额数据库自动迁移失败，插件已停止启用", e);
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
         }
+        
+        try {
+            if (this.isMySqlMode()) {
+                AbstractStorgeHandler.setHandler(MySqlStorgeHandler.class);
+            } else {
+                AbstractStorgeHandler.setHandler(SqliteStorageHandler.class);
+            }
+        } catch (RuntimeException e) {
+            getLogger().log(Level.SEVERE, "存储处理器初始化失败，插件已停止启用", e);
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        if (AbstractStorgeHandler.getHandler() == null) {
+            getLogger().severe("存储处理器初始化失败，插件已停止启用");
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        this.loadConfig();
         
         Bukkit.getPluginManager().registerEvents(new PlayerListener(), this);
         this.getCommand("nye").setExecutor(new NyeCommand(this));
@@ -134,12 +161,21 @@ public class Main extends AyPlugin {
         FileConfiguration data = YamlConfiguration.loadConfiguration(shop);
         int fails = 0;
         for (String key : data.getKeys(false)) {
-            if (vaults.contains(data.getString(key + ".type"))) {
-                Commodity commodity = new Commodity(data.getString(key + ".type"), data.getInt(key + ".amount"),
-                        data.getStringList(key + ".commands"), data.getString(key + ".name"));
-                Commodity.COMMODITY_MAP.put(key, commodity);
-            } else {
+            if (!vaults.contains(data.getString(key + ".type"))) {
                 fails++;
+                continue;
+            }
+            try {
+                Commodity commodity = new Commodity(data.getString(key + ".type"),
+                        Money.parseConfig(data.get(key + ".amount")), data.getStringList(key + ".commands"),
+                        data.getString(key + ".name"));
+                if (commodity.getAmountExact().signum() == 0) {
+                    throw new IllegalArgumentException("商品价格必须大于 0");
+                }
+                Commodity.COMMODITY_MAP.put(key, commodity);
+            } catch (IllegalArgumentException e) {
+                fails++;
+                getLogger().warning("商品 " + key + " 的价格无效: " + e.getMessage());
             }
         }
         this.print("&6 * &fCommodity: &a" + Commodity.COMMODITY_MAP.size() + " &f/ &c" + fails);

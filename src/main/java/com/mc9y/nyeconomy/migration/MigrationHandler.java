@@ -2,10 +2,12 @@ package com.mc9y.nyeconomy.migration;
 
 import com.mc9y.nyeconomy.Main;
 import com.mc9y.nyeconomy.service.UUIDService;
+import com.mc9y.nyeconomy.util.Money;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.sql.*;
 import java.util.*;
 import java.util.logging.Level;
@@ -18,7 +20,7 @@ import java.util.logging.Level;
  */
 public class MigrationHandler {
     private final Main plugin;
-    private final Map<String, Map<String, Integer>> migrationData = new HashMap<>();
+    private final Map<String, Map<String, BigDecimal>> migrationData = new HashMap<>();
 
     public MigrationHandler(Main plugin) {
         this.plugin = plugin;
@@ -113,7 +115,18 @@ public class MigrationHandler {
             FileConfiguration config = YamlConfiguration.loadConfiguration(file);
             
             for (String playerName : config.getKeys(false)) {
-                int balance = config.getInt(playerName, 0);
+                BigDecimal balance;
+                try {
+                    int legacyBalance = config.getInt(playerName, 0);
+                    if (legacyBalance < 0) {
+                        throw new IllegalArgumentException("金额不能小于 0");
+                    }
+                    balance = Money.of(legacyBalance);
+                } catch (IllegalArgumentException e) {
+                    plugin.getLogger().warning("跳过无效余额: " + playerName + " - " + e.getMessage());
+                    result.failCount++;
+                    continue;
+                }
                 
                 migrationData.computeIfAbsent(playerName, k -> new HashMap<>())
                              .put(currencyType, balance);
@@ -146,7 +159,7 @@ public class MigrationHandler {
                     String jsonData = rs.getString("data");
                     
                     // 简单的 JSON 解析 (假设格式: {"currencys":[{"type":"金币","count":100}]})
-                    Map<String, Integer> balances = parseOldJsonData(jsonData);
+                    Map<String, BigDecimal> balances = parseOldJsonData(jsonData);
                     if (!balances.isEmpty()) {
                         migrationData.put(playerName, balances);
                         result.totalRecords += balances.size();
@@ -165,8 +178,8 @@ public class MigrationHandler {
     /**
      * 简单的 JSON 解析 (仅用于迁移)
      */
-    private Map<String, Integer> parseOldJsonData(String jsonData) {
-        Map<String, Integer> result = new HashMap<>();
+    private Map<String, BigDecimal> parseOldJsonData(String jsonData) {
+        Map<String, BigDecimal> result = new HashMap<>();
         if (jsonData == null || jsonData.isEmpty()) {
             return result;
         }
@@ -188,7 +201,7 @@ public class MigrationHandler {
                 String[] pairs = item.split(",");
                 
                 String type = null;
-                Integer count = null;
+                BigDecimal count = null;
                 
                 for (String pair : pairs) {
                     String[] kv = pair.split(":");
@@ -201,7 +214,11 @@ public class MigrationHandler {
                         type = value;
                     } else if ("count".equals(key)) {
                         try {
-                            count = Integer.parseInt(value);
+                            int legacyCount = Integer.parseInt(value);
+                            if (legacyCount < 0) {
+                                throw new NumberFormatException("negative amount");
+                            }
+                            count = Money.of(legacyCount);
                         } catch (NumberFormatException e) {
                             // 忽略
                         }
@@ -242,7 +259,7 @@ public class MigrationHandler {
                 long now = System.currentTimeMillis();
                 int batchCount = 0;
                 
-                for (Map.Entry<String, Map<String, Integer>> playerEntry : migrationData.entrySet()) {
+                for (Map.Entry<String, Map<String, BigDecimal>> playerEntry : migrationData.entrySet()) {
                     String playerName = playerEntry.getKey();
                     UUID playerUUID = UUIDService.getInstance().getPlayerUUID(playerName);
                     
@@ -251,14 +268,14 @@ public class MigrationHandler {
                     playerPs.setLong(3, now);
                     playerPs.addBatch();
                     
-                    for (Map.Entry<String, Integer> balanceEntry : playerEntry.getValue().entrySet()) {
+                    for (Map.Entry<String, BigDecimal> balanceEntry : playerEntry.getValue().entrySet()) {
                         String currencyType = balanceEntry.getKey();
-                        int balance = balanceEntry.getValue();
+                        BigDecimal balance = balanceEntry.getValue();
                         
                         try {
                             balancePs.setString(1, playerUUID.toString());
                             balancePs.setString(2, currencyType);
-                            balancePs.setInt(3, balance);
+                            balancePs.setLong(3, Money.toCents(balance));
                             balancePs.setLong(4, now);
                             balancePs.addBatch();
                             
@@ -324,7 +341,7 @@ public class MigrationHandler {
                     long now = System.currentTimeMillis();
                     int batchCount = 0;
                     
-                    for (Map.Entry<String, Map<String, Integer>> playerEntry : migrationData.entrySet()) {
+                    for (Map.Entry<String, Map<String, BigDecimal>> playerEntry : migrationData.entrySet()) {
                         String playerName = playerEntry.getKey();
                         UUID playerUUID = UUIDService.getInstance().getPlayerUUID(playerName);
                         
@@ -333,14 +350,14 @@ public class MigrationHandler {
                         playerPs.setLong(3, now);
                         playerPs.addBatch();
                         
-                        for (Map.Entry<String, Integer> balanceEntry : playerEntry.getValue().entrySet()) {
+                        for (Map.Entry<String, BigDecimal> balanceEntry : playerEntry.getValue().entrySet()) {
                             String currencyType = balanceEntry.getKey();
-                            int balance = balanceEntry.getValue();
+                            BigDecimal balance = balanceEntry.getValue();
                             
                             try {
                                 balancePs.setString(1, playerUUID.toString());
                                 balancePs.setString(2, currencyType);
-                                balancePs.setInt(3, balance);
+                                balancePs.setBigDecimal(3, balance);
                                 balancePs.setLong(4, now);
                                 balancePs.addBatch();
                                 

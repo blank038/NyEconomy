@@ -5,6 +5,7 @@ import com.mc9y.nyeconomy.api.event.EconomyAction;
 import com.mc9y.nyeconomy.cache.StateCache;
 import com.mc9y.nyeconomy.handler.AbstractStorgeHandler;
 import com.mc9y.nyeconomy.service.UUIDService;
+import com.mc9y.nyeconomy.util.Money;
 import net.milkbowl.vault.economy.AbstractEconomy;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
@@ -12,6 +13,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.ServicePriority;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -46,12 +49,15 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public int fractionalDigits() {
-        return 0;
+        return Money.SCALE;
     }
 
     @Override
     public String format(double v) {
-        return String.format("%.0f", v);
+        if (Double.isNaN(v) || Double.isInfinite(v)) {
+            throw new IllegalArgumentException("金额必须是有限数字");
+        }
+        return BigDecimal.valueOf(v).setScale(Money.SCALE, RoundingMode.HALF_UP).toPlainString();
     }
 
     @Override
@@ -88,23 +94,29 @@ public class VaultBridge extends AbstractEconomy {
     @Override
     public double getBalance(String s) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
-        return AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
+        return AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2).doubleValue();
     }
 
     @Override
     public double getBalance(OfflinePlayer s) {
-        return AbstractStorgeHandler.getHandler().balance(s.getUniqueId(), this.currency, 2);
+        return AbstractStorgeHandler.getHandler().balanceExact(s.getUniqueId(), this.currency, 2).doubleValue();
     }
 
     @Override
     public double getBalance(String s, String s1) {
         UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
-        return AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
+        return AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2).doubleValue();
     }
 
     @Override
     public boolean has(String s, double v) {
-        return this.getBalance(s) >= v;
+        try {
+            BigDecimal amount = Money.fromVault(v);
+            UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
+            return AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2).compareTo(amount) >= 0;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     @Override
@@ -114,28 +126,13 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public EconomyResponse withdrawPlayer(String s, double v) {
-        if (v < 0.0) {
-            return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
-        }
         UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
-        boolean result = Main.getNyEconomyAPI().performChange(uuid, this.currency, EconomyAction.WITHDRAW, (int) v, false, true);
-        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
-        return new EconomyResponse(v, balance,
-                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
-                result ? "" : "余额不足或操作被取消");
+        return withdraw(uuid, v);
     }
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount) {
-        if (amount < 0.0) {
-            return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
-        }
-        UUID uuid = player.getUniqueId();
-        boolean result = Main.getNyEconomyAPI().performChange(uuid, this.currency, EconomyAction.WITHDRAW, (int) amount, false, true);
-        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
-        return new EconomyResponse(amount, balance,
-                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
-                result ? "" : "余额不足或操作被取消");
+        return withdraw(player.getUniqueId(), amount);
     }
 
     @Override
@@ -150,28 +147,13 @@ public class VaultBridge extends AbstractEconomy {
 
     @Override
     public EconomyResponse depositPlayer(String s, double v) {
-        if (v < 0.0) {
-            return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
-        }
         UUID uuid = UUIDService.getInstance().getPlayerUUID(s);
-        boolean result = Main.getNyEconomyAPI().performChange(uuid, this.currency, EconomyAction.DEPOSIT, (int) v, false, true);
-        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
-        return new EconomyResponse(v, balance,
-                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
-                result ? "" : "操作被取消");
+        return deposit(uuid, v);
     }
 
     @Override
     public EconomyResponse depositPlayer(OfflinePlayer player, double amount) {
-        if (amount < 0.0) {
-            return new EconomyResponse(0.0, 0.0, EconomyResponse.ResponseType.FAILURE, "数字小于0");
-        }
-        UUID uuid = player.getUniqueId();
-        boolean result = Main.getNyEconomyAPI().performChange(uuid, this.currency, EconomyAction.DEPOSIT, (int) amount, false, true);
-        int balance = AbstractStorgeHandler.getHandler().balance(uuid, this.currency, 2);
-        return new EconomyResponse(amount, balance,
-                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
-                result ? "" : "操作被取消");
+        return deposit(player.getUniqueId(), amount);
     }
 
     @Override
@@ -182,6 +164,42 @@ public class VaultBridge extends AbstractEconomy {
     @Override
     public EconomyResponse depositPlayer(OfflinePlayer player, String worldName, double amount) {
         return this.depositPlayer(player, amount);
+    }
+
+    private EconomyResponse withdraw(UUID uuid, double input) {
+        BigDecimal balance = AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2);
+        final BigDecimal amount;
+        try {
+            amount = Money.fromVault(input);
+        } catch (IllegalArgumentException e) {
+            return new EconomyResponse(0.0, balance.doubleValue(), EconomyResponse.ResponseType.FAILURE,
+                    e.getMessage());
+        }
+
+        boolean result = Main.getNyEconomyAPI().performChange(
+                uuid, this.currency, EconomyAction.WITHDRAW, amount, false, true);
+        balance = AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2);
+        return new EconomyResponse(amount.doubleValue(), balance.doubleValue(),
+                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                result ? "" : "余额不足或操作被取消");
+    }
+
+    private EconomyResponse deposit(UUID uuid, double input) {
+        BigDecimal balance = AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2);
+        final BigDecimal amount;
+        try {
+            amount = Money.fromVault(input);
+        } catch (IllegalArgumentException e) {
+            return new EconomyResponse(0.0, balance.doubleValue(), EconomyResponse.ResponseType.FAILURE,
+                    e.getMessage());
+        }
+
+        boolean result = Main.getNyEconomyAPI().performChange(
+                uuid, this.currency, EconomyAction.DEPOSIT, amount, false, true);
+        balance = AbstractStorgeHandler.getHandler().balanceExact(uuid, this.currency, 2);
+        return new EconomyResponse(amount.doubleValue(), balance.doubleValue(),
+                result ? EconomyResponse.ResponseType.SUCCESS : EconomyResponse.ResponseType.FAILURE,
+                result ? "" : "操作被取消");
     }
 
     @Override
