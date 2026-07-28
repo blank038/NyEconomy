@@ -135,17 +135,22 @@ public class NyeCommand implements CommandExecutor {
             
             BigDecimal amount;
             try {
-                amount = Money.parseCommand(args[3]);
+                amount = type == 0 ? Money.parseSignedCommand(args[3]) : Money.parseCommand(args[3]);
             } catch (IllegalArgumentException e) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
-            if (type != 2 && amount.signum() == 0) {
+            int effectiveType = type;
+            if (type == 0 && amount.signum() < 0) {
+                effectiveType = 1;
+                amount = amount.negate();
+            }
+            if (effectiveType != 2 && amount.signum() == 0) {
                 sender.sendMessage(Main.getString("message.fail-amount", true));
                 return;
             }
             String formattedAmount = Money.format(amount);
-            switch (type) {
+            switch (effectiveType) {
                 case 0:
                     if (!Main.getNyEconomyAPI().tryDeposit(args[2], playerUUID, amount)) {
                         sender.sendMessage(Main.getString("message.fail-amount", true));

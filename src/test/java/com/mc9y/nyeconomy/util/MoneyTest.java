@@ -42,6 +42,16 @@ public class MoneyTest {
         Money.parseCommand("1E+3");
     }
 
+    @Test
+    public void signedCommandAcceptsNegativeAmount() {
+        assertEquals(new BigDecimal("-12.34"), Money.parseSignedCommand("-12.34"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void regularCommandStillRejectsNegativeAmount() {
+        Money.parseCommand("-12.34");
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void rejectsBalanceAboveLegacySafeRange() {
         Money.normalize(new BigDecimal("2147483648.00"));

@@ -47,6 +47,13 @@ public final class Money {
         }
     }
 
+    public static BigDecimal parseSignedCommand(String input) {
+        if (input != null && input.startsWith("-")) {
+            return parseCommand(input.substring(1)).negate();
+        }
+        return parseCommand(input);
+    }
+
     public static BigDecimal parseConfig(Object input) {
         if (input == null) {
             throw new IllegalArgumentException("金额不能为空");
